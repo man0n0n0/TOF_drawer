@@ -11,7 +11,10 @@
   - poulie : 16.56 * 19.9
     
 **kinetic**
-- microstepping adjustment
+- [ ] TODO : microstepping adjustment
+
+**electronic**
+- [ ] TODO : add button : EXTERNAL_BOOT + NETWORK_ACTIVATION 
 
 
 # softwr
