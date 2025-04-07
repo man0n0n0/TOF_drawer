@@ -1,3 +1,5 @@
+# hardwr
+**cad**
 - [x] design bracket nema 23
   - [x] TODO : v0.1 meutriere pour belt tentionning 
   - courroie à fleur du tirroir : h etalon boite rouge == 61 mm
@@ -7,11 +9,19 @@
 - [x] design tiroir / poulie
   - GT5 11m large
   - poulie : 16.56 * 19.9
+    
+**kinetic**
+- microstepping adjustment
 
-# software 
+
+# softwr
 - boot :
   - if button x pressed : enable network + http
-  - 
-- client interface variables :
-  - distance de detection
-  - vitesse sortie / entrée tiroir
+
+- __main__.py :
+  - stepper management
+    - [ ] TODO : acceleration management (PID ?)
+
+  - client interface variables :
+    - distance de detection
+    - vitesse sortie / entrée tiroir
