@@ -23,7 +23,7 @@
 
 - __main__.py :
   - stepper management
-    - [ ] TODO : acceleration management (PID ?)
+    - [ ] TODO : acceleration management (using AccelStepper ? https://github.com/pedromneto97/AccelStepper-MicroPython/blob/master/AccelStepper.py)
 
   - client interface variables :
     - distance de detection
