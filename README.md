@@ -24,6 +24,8 @@
 - __main__.py :
   - stepper management
     - [ ] TODO : acceleration management (using AccelStepper ? https://github.com/pedromneto97/AccelStepper-MicroPython/blob/master/AccelStepper.py)
+    - [ ] TODO : working config.py and json immplemtentation
+    - [ ] TODO : main.py able to retreive datas from json
 
   - client interface variables :
     - distance de detection
