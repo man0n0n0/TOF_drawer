@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>AlineBouvy</title>
+        <meta charset="UTF-8">
+        <style>
+            /* style.css */
+            body {
+                font-family: Arial, sans-serif;
+                background-color: #f4f4f4;
+                margin: 0;
+                padding: 0;
+            }
+    
+            form {
+                max-width: 400px;
+                margin: 20px auto;
+                background-color: #fff;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            }
+    
+            label {
+                display: block;
+                margin-bottom: 8px;
+            }
+    
+            input[type="range"] {
+                width: 100%;
+                margin-bottom: 12px;
+            }
+    
+            input[type="checkbox"] {
+                margin-bottom: 12px;
+            }
+    
+            input[type="submit"],
+            input[type="reset"] {
+                background-color: #4caf50;
+                color: #fff;
+                padding: 10px 15px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+    
+            input[type="submit"]:hover,
+            input[type="reset"]:hover {
+                background-color: #45a049;
+            }
+    
+        </style>
+        <script>
+            function getCookie(name) {
+                var value = "; " + document.cookie;
+                var parts = value.split("; " + name + "=");
+                if (parts.length == 2)
+                    return parts.pop().split(";").shift();
+            }
+            function showMessage() {
+                document.getElementById('message').innerHTML = getCookie('message');
+            }
+            function onLoad() {
+                showMessage();
+                var form = getCookie('form');
+                if (form) {
+                    form = form.split(',')
+                    document.getElementById('vaping_time').selectedIndex = parseInt(form[0]-1);
+                    document.getElementById('chilling_time').selectedIndex = parseInt(form[1]/30-1);
+                }
+            }
+        </script>
+    </head>
+    <body onload="onLoad();">
+        <div class="container">
+            <h1>drawer variable</h1>
+            <div class="alert alert-primary" role="alert" id="message">
+            </div>
+            <form action="/" method="post">
+                <label for="maxspeed">Max Speed:</label>
+                <span id="maxspeedValue">{{maxspeed}} %</span>
+                <input type="range" id="maxspeed" name="maxspeed" min="60" max="100" value="{{maxspeed}}" oninput="updateSliderValue('maxspeed', 'maxspeedValue')">
+                
+                <br>
+        
+                <label for="acctime">Acceleration Time:</label>
+                <span id="acctimeValue">{{acctime}} s</span>
+                <input type="range" id="acctime" name="acctime" min="3" max="20" value="{{acctime}}" oninput="updateSliderValue('acctime', 'acctimeValue')">
+                
+                <br>
+        
+                <label for="runtime">Run Time:</label>
+                <span id="runtimeValue">{{runtime}} s</span>
+                <input type="range" id="runtime" name="runtime" min="30" max="180" value="{{runtime}}" oninput="updateSliderValue('runtime', 'runtimeValue')">
+                
+                <br>
+        
+                <label for="pausetime">Pause Time:</label>
+                <span id="pausetimeValue">{{pausetime}} s</span>
+                <input type="range" id="pausetime" name="pausetime" min="30" max="360" value="{{pausetime}}" oninput="updateSliderValue('pausetime', 'pausetimeValue')">
+                
+                <br>
+        
+        
+                <br>
+                <input type="submit" value="Submit">
+                <input type="reset" value="Reset">
+        
+                <script>
+                    function updateSliderValue(sliderId, spanId) {
+                        var slider = document.getElementById(sliderId);
+                        var span = document.getElementById(spanId);
+                        span.innerHTML = slider.value;
+                    }
+                </script>
+            </form>
+        </div>
+    </body>
+</html>
