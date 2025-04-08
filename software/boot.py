@@ -5,7 +5,7 @@
 from time import sleep_ms
 from machine import PWM, Pin
 
-led = Pin(85, Pin.OUT)
+led = Pin(8, Pin.OUT)
 b_boot = Pin(0, Pin.IN, Pin.PULL_UP)
 #b_config = Pin(n, Pin.IN)
 
