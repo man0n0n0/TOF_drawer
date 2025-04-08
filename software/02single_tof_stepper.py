@@ -8,16 +8,21 @@ from stepper import Stepper
 '''piece variable'''
 steps_per_rev = 3200
 step_per_mm = 25.6 #https://blog.prusa3d.com/calculator_3416/
-d_threshold = 1000 #minimal distance for deteciton(mm)
-d_out = 220 #distance from homing point (mm
-back_speed = 11100 #vitesse de retractation du tirroir (stp/sec)
-forw_speed = 1100 #vitesse de sortie du tirroir (step/sec)
-wait_inside = 3333 # waiting time after the drawer got inside (mm)
+d_threshold = 1000 #distance minimal de detection en mm
+d_out = 220 #distance from homing point in mm
+back_speed = 8100 #vitesse de retractation du tirroir
+forw_speed = 1100 #vitesse de sortie du tirroir
 
 def homing(): 
-    s.speed(100) 
-    s.free_run(-1) #move forward
 
+    for vel in range(100,back_speed,100):
+        if end_s.value() == 1 :
+            s.speed(vel) 
+            s.free_run(-1) #move forward
+            sleep_ms(10)
+        else :
+            break
+        
     while end_s.value() == 1:
         pass
     
@@ -51,27 +56,26 @@ display = SSD1306_I2C(70, 40, i2c)
 
 '''--stepper'''
 s = Stepper(0,2,1,steps_per_rev=steps_per_rev) #stp,dir,en
+#create an input pin for the end switch (switch connects pin to GND)
 end_s = Pin(3, Pin.IN, Pin.PULL_UP)
 
 homing()
 
 '''execution'''
+
+exiting = False
+
 while True :
     d = min(vl53[0].range, 6666, 6666) 
     display.fill(0)    
     display.text(f"{d}",23, 23, 1)
+
+    #TODO : manage this part to be more fluid
     
     if d < d_threshold :
-
-        for vel in range(100,back_speed,100):
-            s.speed(vel) 
-            s.target(10*step_per_mm) # 3mm from home
-            sleep_ms(5)
-        sleep_ms(500)
-
+        exiting = False
         homing()
-
-        sleep_ms(wait_inside - 500)
+        sleep_ms(3333)
 
     else :
 #         display.fill_rect(27, 0, 16, 16, 1)        
@@ -81,10 +85,11 @@ while True :
 #         display.vline(38, 4, 11, 1)                
 #         display.fill_rect(40, 12, 1, 2, 1)          
 #         display.show()
+        if not exiting :
+            s.track_target() #start stepper again
 
-        s.track_target() #start stepper again
+            s.speed(forw_speed)
+            s.target(d_out*step_per_mm)
 
-        s.speed(forw_speed)
-        s.target(d_out*step_per_mm)
-
+            exiting = True
 
