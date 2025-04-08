@@ -9,10 +9,11 @@ from stepper import Stepper
 
 # TODO: HERE manage ujson ? 
 
-# d_threshold = 1000 #distance minimal de detection en mm
-# d_out = 11000 #nombre de revolution pour terroir sorti #TODO : convertir en metric
-# back_speed = 6000 #vitesse de retractation du tirroir
-# forw_speed = 1000 #vitesse de sortie du tirroir
+steps_per_rev = 3200
+d_threshold = 1000 #distance minimal de detection en mm
+d_out = 11000 #nombre de revolution pour terroir sorti #TODO : convertir en metric
+back_speed = 6000 #vitesse de retractation du tirroir
+forw_speed = 1000 #vitesse de sortie du tirroir
 
 '''init'''
 i2c = I2C(0, sda=Pin(5), scl=Pin(6))
@@ -37,7 +38,7 @@ for index , power_pin in enumerate(xshut):
 display = SSD1306_I2C(70, 40, i2c)
 
 '''--stepper'''
-s = Stepper(0,2,1,steps_per_rev=3200) #stp,dir,en
+s = Stepper(0,2,1,steps_per_rev=steps_per_rev) #stp,dir,en
 end_s = Pin(3, Pin.IN, Pin.PULL_UP)
 
 def homing():

@@ -16,7 +16,7 @@ import Microdot, redirect, send_file
 '''--wifi'''
 ap = network.WLAN(network.AP_IF)
 ap.active(True)
-ap.config(essid='drawer', password='123456789')
+ap.config(essid='drawer', password='bouvy_admin')
 while ap.active() == False:
   pass
 
@@ -35,21 +35,8 @@ async def index(request):
             # mode = request.form['mode']        
             # vaping_time = int(request.form['vaping_time'])
             # TODO: HERE manage ujson ? 
-            
-            message_cookie = "current mode is {mode} <br> timing is {vaping_time} - {chilling_time} ".format(mode=request.form['mode'], vaping_time = vaping_time  if not mode == 'random_selection' else 'random', chilling_time=chilling_time if not mode == 'random_selection' else '' )   
-        
+                    
         response = redirect('/')
-        
-    else:
-        if 'message' not in request.cookies:
-            message_cookie = 'machine is load with default preset'
-        response = send_file('V4P3R.html')
-        
-    if form_cookie:
-        response.set_cookie('form', form_cookie)
-        
-    if message_cookie:
-        response.set_cookie('message', message_cookie)
         
     return response
 
@@ -61,6 +48,7 @@ display.fill(0)
 display.text(f"!NETWORK CONFIG!",0, 10, 1)
 display.text(f"REBOOT",10, 28, 1)
 display.text(f"WHEN DONE",2, 30, 1)
+display.text(f'{ap.ifconfig()[0]}:5000', 0, 28, 1)
 display.show()
 
 
