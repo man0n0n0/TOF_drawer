@@ -8,26 +8,37 @@ d_threshold = 200
 
 i2c = I2C(0, sda=Pin(5), scl=Pin(6))
 
-vl1xshut = Pin(10, Pin.OUT)#2
-# vl2xshut = Pin(15, Pin.OUT)
-# vl3xshut = Pin(16, Pin.OUT)
+'''TOF'''
+vl1xshut = Pin(10, Pin.OUT)
+# vl2xshut = Pin(9, Pin.OUT)
+# vl3xshut = Pin(8, Pin.OUT)
+
 xshut = [
     vl1xshut,
-#     vl2xshut,
-#     vl3xshut,
+    # vl2xshut,
+    # vl3xshut,
 ]
+
 vl53 = []
+
+for power_pin in xshut:
+    power_pin.value(0)
+
 for index , power_pin in enumerate(xshut):
+    print(power_pin)
     power_pin.value(1)
     vl53.insert(index , vl53l0x.VL53L0X(i2c))  
     if index < len(xshut) - 1:
         vl53[index].set_address(index + 0x30)
+        vl53[index].measurement_timing_budget = 20000
+        vl53[index].start_continuous()
         
 display = SSD1306_I2C(70, 40, i2c)  
 
 '''execution'''
 while True :
-    d = min(vl53[0].range, 6666, 6666) #random value 
+    d = min(vl53[0].range, 6666) #random value 
+    print(vl53[0].range)
     
     display.fill(0)
     
