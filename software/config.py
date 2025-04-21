@@ -11,6 +11,7 @@ import time
 
 # Config file path
 CONFIG_FILE = 'config.json'
+INDEX_FILE = 'index.html'
 
 def load_config():
     """Load configuration from JSON file or create default"""
@@ -97,7 +98,7 @@ def handle_request(client_socket):
         
         # Read HTML template from file
         try:
-            with open('index.html', 'r') as file:
+            with open(INDEX_FILE, 'r') as file:
                 html_template = file.read()
                 
             # Replace placeholders with actual values
