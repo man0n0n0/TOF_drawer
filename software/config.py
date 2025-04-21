@@ -95,12 +95,61 @@ def handle_request(client_socket):
         # Load current config for display
         config = load_config()
         
-        # Generate HTML response
-        html = generate_html(config, message)
-        response = f"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n{html}"
+        # Read HTML template from file
+        try:
+            with open('index.html', 'r') as file:
+                html_template = file.read()
+                
+            # Replace placeholders with actual values
+            html = html_template.replace('{{d_threshold}}', str(config['d_threshold']))
+            html = html.replace('{{back_speed}}', str(config['back_speed']))
+            html = html.replace('{{forw_speed}}', str(config['forw_speed']))
+            
+            # Add message script if there's a message
+            if message:
+                message_script = f"""
+                <script>
+                    window.onload = function() {{
+                        var messageElement = document.getElementById('message');
+                        if (messageElement) {{
+                            messageElement.textContent = "{message}";
+                            messageElement.style.display = 'block';
+                            setTimeout(function() {{
+                                messageElement.style.display = 'none';
+                            }}, 3000);
+                        }}
+                    }};
+                </script>
+                """
+                # Insert the script before the closing </body> tag
+                html = html.replace('</body>', f'{message_script}</body>')
+                
+        except Exception as e:
+            # Fallback if index.html is not found
+            html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Error</title>
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+            </head>
+            <body>
+                <h1>Error: Cannot load template</h1>
+                <p>The index.html file could not be loaded: {str(e)}</p>
+                <p>Current settings:</p>
+                <ul>
+                    <li>Detection threshold: {config['d_threshold']}</li>
+                    <li>Retraction speed: {config['back_speed']}</li>
+                    <li>Exit speed: {config['forw_speed']}</li>
+                </ul>
+            </body>
+            </html>
+            """
         
-        # Send response
+        # Send HTTP response
+        response = f"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n{html}"
         client_socket.send(response.encode('utf-8'))
+        
     except Exception as e:
         # Send error response
         error_response = f"HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/plain\r\n\r\nError: {str(e)}"
@@ -108,98 +157,6 @@ def handle_request(client_socket):
     finally:
         # Close connection
         client_socket.close()
-
-def generate_html(config, message=""):
-    """Generate HTML for the configuration page"""
-    # Message display style
-    message_style = "display: block;" if message else "display: none;"
-    
-    html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Drawer Configuration</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>
-            body {{ font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f4f4f4; }}
-            h1 {{ text-align: center; }}
-            .container {{ max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
-            .form-group {{ margin-bottom: 15px; }}
-            label {{ display: block; margin-bottom: 5px; font-weight: bold; }}
-            .slider-container {{ display: flex; align-items: center; }}
-            input[type="range"] {{ flex: 1; margin-right: 10px; }}
-            .value {{ min-width: 50px; text-align: right; font-weight: bold; }}
-            .buttons {{ margin-top: 20px; text-align: center; }}
-            button {{ background: #000; color: white; border: none; padding: 10px 20px; border-radius: 3px; cursor: pointer; margin: 0 5px; }}
-            button:hover {{ background: #333; }}
-            .message {{ background: #d4edda; color: #155724; padding: 10px; border-radius: 3px; margin-bottom: 15px; {message_style} }}
-            .description {{ font-size: 12px; color: #666; margin-top: 4px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>Drawer Configuration</h1>
-            
-            <div class="message" id="message">{message}</div>
-            
-            <form method="post" action="/">
-                <div class="form-group">
-                    <label>Detection Threshold (mm):</label>
-                    <div class="slider-container">
-                        <input type="range" name="d_threshold" min="200" max="2000" value="{config['d_threshold']}" oninput="updateValue('d_threshold', this.value)">
-                        <span class="value" id="d_threshold_value">{config['d_threshold']}</span>
-                    </div>
-                    <div class="description">Distance in mm. When an object is detected closer than this, the drawer will close.</div>
-                </div>
-                
-                <div class="form-group">
-                    <label>Retraction Speed:</label>
-                    <div class="slider-container">
-                        <input type="range" name="back_speed" min="3000" max="12000" value="{config['back_speed']}" oninput="updateValue('back_speed', this.value)">
-                        <span class="value" id="back_speed_value">{config['back_speed']}</span>
-                    </div>
-                    <div class="description">Speed at which drawer retracts (steps/sec). Higher values = faster.</div>
-                </div>
-                
-                <div class="form-group">
-                    <label>Exit Speed:</label>
-                    <div class="slider-container">
-                        <input type="range" name="forw_speed" min="500" max="3000" value="{config['forw_speed']}" oninput="updateValue('forw_speed', this.value)">
-                        <span class="value" id="forw_speed_value">{config['forw_speed']}</span>
-                    </div>
-                    <div class="description">Speed at which drawer extends (steps/sec). Lower values = smoother.</div>
-                </div>
-                
-                <div class="buttons">
-                    <button type="submit">Save Settings</button>
-                    <button type="button" onclick="resetForm()">Reset</button>
-                </div>
-            </form>
-        </div>
-        
-        <script>
-            function updateValue(id, value) {{
-                document.getElementById(id + '_value').textContent = value;
-            }}
-            
-            function resetForm() {{
-                document.querySelector('form').reset();
-                // Update displayed values
-                document.querySelectorAll('input[type="range"]').forEach(function(slider) {{
-                    updateValue(slider.name, slider.value);
-                }});
-            }}
-            
-            // Hide message after 3 seconds
-            setTimeout(function() {{
-                document.getElementById('message').style.display = 'none';
-            }}, 3000);
-        </script>
-    </body>
-    </html>
-    """
-    
-    return html
 
 def run_server():
     """Run the configuration web server"""
