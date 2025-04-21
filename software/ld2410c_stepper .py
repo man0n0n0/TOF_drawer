@@ -56,7 +56,7 @@ end_s = Pin(3, Pin.IN, Pin.PULL_UP)
 
 '''------execution------'''
 homing()
-drawer_open = True
+drawer_open = False
 
 while True:
     # if radar.is_presence_detected(): # do we need to have detected presence to move ?
