@@ -8,6 +8,15 @@ import socket
 CONFIG_FILE = 'config.json'
 INDEX_FILE = 'index.html'
 
+def display_msg(msg):
+    display.fill(0)
+    display.text("bouvy_drawer", 5, 0, 1)
+    y = 10
+    for line in msg.split('\n'):
+        display.text(line, 0, y, 1)
+        y += 10
+    display.show()
+
 def main():
     # Setup network
     ap = network.WLAN(network.AP_IF)
@@ -18,11 +27,7 @@ def main():
     # Setup display
     i2c = I2C(0, sda=Pin(5), scl=Pin(6))
     display = SSD1306_I2C(70, 40, i2c)
-    display.fill(0)
-    display.text("SETUP MODE", 0, 0, 1)
-    display.text("drawer-config", 0, 15, 1)
-    display.text(f"IP:{ip}", 0, 30, 1)
-    display.show()
+    display_msg("SETUP MODE/nconnect to:/n{ip}:port")
     
     # Create server
     s = socket.socket()
@@ -35,9 +40,8 @@ def main():
         with open(CONFIG_FILE, 'r') as f:
             config = json.loads(f.read())
     except:
-        config = {"d_threshold": 1000, "back_speed": 8100, "forw_speed": 1100}
-        with open(CONFIG_FILE, 'w') as f:
-            f.write(json.dumps(config))
+        display_msg("SETUP MODE/njson error/ncheck your file")
+
     
     # Main server loop
     while True:

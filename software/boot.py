@@ -29,7 +29,7 @@ if b_boot.value() == 1:
     pass
 
 elif b_config.value() == 0 : 
-     import config
+     import config_mode
 
 else :
     import ld2410c_stepper
