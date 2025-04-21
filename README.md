@@ -5,6 +5,9 @@
 - [x] design tiroir / poulie
   - GT5 11m large
   - poulie : 16.56 * 19.9
+- PCB
+  - [ ] EN pin to 5v logic
+  - [ ] wire LD2410
 
 # software 
 - boot :
@@ -14,7 +17,11 @@
   - distance de detection
   - vitesse sortie / entrée tiroir
 
-- [ ] 
+- [x] EN management
+
+- [x] LD2410 managmeent
+
+- [ ] change retarction logic : from timing to pos (no waiting time between retarction ended and slow homing)
 ---
 
 2025-04-14 - RDV #1 :  
