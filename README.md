@@ -1,32 +1,27 @@
-# hardwr
-**cad**
 - [x] design bracket nema 23
-  - [x] TODO : v0.1 meutriere pour belt tentionning 
-  - courroie à fleur du tirroir : h etalon boite rouge == 61 mm
-  - large poulie GT5 od : 44mm
+  - using metal one
 - [ ] design porte poulie
-  - [ ] TODO : include rondelle side around bearing
+  - [x] TODO : include rondelle side around bearing
 - [x] design tiroir / poulie
   - GT5 11m large
   - poulie : 16.56 * 19.9
-    
-**kinetic**
-- [ ] TODO : microstepping adjustment
 
-**electronic**
-- [ ] TODO : add button : EXTERNAL_BOOT + NETWORK_ACTIVATION 
-
-
-# softwr
+# software 
 - boot :
   - if button x pressed : enable network + http
 
-- __main__.py :
-  - stepper management
-    - [ ] TODO : acceleration management (using AccelStepper ? https://github.com/pedromneto97/AccelStepper-MicroPython/blob/master/AccelStepper.py)
-    - [ ] TODO : working config.py and json immplemtentation
-    - [ ] TODO : main.py able to retreive datas from json
+- client interface variables :
+  - distance de detection
+  - vitesse sortie / entrée tiroir
 
-  - client interface variables :
-    - distance de detection
-    - vitesse sortie / entrée tiroir
+- [ ] 
+---
+
+2025-04-14 - RDV #1 :  
+
+- masse tirroir : seulement palnneau frontal (pas de bas reflief)
+- hauteur commode de nuit
+  - idée guerridon 
+  - tirroir de 30cm large
+- kinematic : ok
+- aspect sonore de la piece (avant driver final) : ok 
