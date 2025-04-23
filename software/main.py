@@ -11,9 +11,9 @@ CONFIG_FILE = 'config.json'
 # Hardware definition
 i2c = I2C(0, sda=Pin(5), scl=Pin(6))
 display = SSD1306_I2C(70, 40, i2c)
-s = Stepper(step_pin=2, dir_pin=1, en_pin=4, invert_dir=True)
+s = Stepper(step_pin=2, dir_pin=1, en_pin=7, invert_dir=True)
 end_s = Pin(3, Pin.IN, Pin.PULL_UP)
-radar = ld2410.LD2410(uart_num=1, tx_pin=8, rx_pin=9)
+radar = ld2410.LD2410(baudrate= 256000,uart_num=1, tx_pin=9, rx_pin=8)
 
 def load_config():
     """Load configuration from JSON file or use defaults"""
@@ -66,7 +66,7 @@ def main():
     
     while True:
         d = radar.get_distance() * 10  # Convert to mm from cm
-        
+        print(".")
         if d < d_threshold and not drawer_open:
             s.enable(True)
             display_msg(f"detected: {d}mm\nopening drawer")

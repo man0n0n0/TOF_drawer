@@ -24,7 +24,7 @@ def display_msg(msg : str):
     lines = msg.split('\n')
 
     for i, line in enumerate(lines):
-        display.text(line, 0, (i*5)+5, 1)
+        display.text(line, 0, (i*10)+10, 1)
         
     display.show()
 
@@ -44,40 +44,45 @@ def homing():
 i2c = I2C(0, sda=Pin(5), scl=Pin(6))
 
 '''LD2410 radar'''
-radar = ld2410.LD2410(uart_num=1, tx_pin=8, rx_pin=9)
+radar = ld2410.LD2410(baudrate= 256000,uart_num=1, tx_pin=3, rx_pin=10)
 
 '''embeded display'''
 display = SSD1306_I2C(70, 40, i2c)
 
 '''stepper'''
-s = Stepper(step_pin=2, dir_pin=1, en_pin=4, invert_dir=True) #stp,dir,en  ###to fix if problem
+s = Stepper(step_pin=2, dir_pin=1, en_pin=7, invert_dir=True) #stp,dir,en  ###to fix if problem
 end_s = Pin(3, Pin.IN, Pin.PULL_UP)
 
 
 '''------execution------'''
-homing()
+# homing()
 drawer_open = False
 
 while True:
     # if radar.is_presence_detected(): # do we need to have detected presence to move ?
-    d = radar.get_distance() * 10  # Convert to mm from cm
+    d = radar.get_moving_distance() * 10  # Convert to mm from cm
+    human = radar.is_stationary_detected()
     
-    if d < d_threshold and drawer_open:
-        s.enable(True)
-        for vel in range(100,back_speed,100):
-            s.speed(vel) 
-            s.target(10*step_per_mm) # 3mm from home
-            sleep_ms(5)
-        sleep_ms(500) #TODO : change waiting time to actual pos https://pypi.org/project/micropython-stepper/
-        homing()
-        sleep_ms(wait_inside - 500)
-        drawer_open = False
-        s.enable(False)
+    display_msg(f"radar : {d}")
+    print(f'{human}')
+    sleep_ms(500)
 
-    elif not drawer_open:
-        s.enable(True)
-        s.track_target() #start stepper again
-        s.speed(forw_speed)
-        s.target(d_out*step_per_mm) # go to outside pos
-        drawer_open = True
-        s.enable(False)
+    # if d < d_threshold and drawer_open:
+    #     s.enable(True)
+    #     for vel in range(100,back_speed,100):
+    #         s.speed(vel) 
+    #         s.target(10*step_per_mm) # 3mm from home
+    #         sleep_ms(5)
+    #     sleep_ms(500) #TODO : change waiting time to actual pos https://pypi.org/project/micropython-stepper/
+    #     homing()
+    #     sleep_ms(wait_inside - 500)
+    #     drawer_open = False
+    #     s.enable(False)
+
+    # elif not drawer_open:
+    #     s.enable(True)
+    #     s.track_target() #start stepper again
+    #     s.speed(forw_speed)
+    #     s.target(d_out*step_per_mm) # go to outside pos
+    #     drawer_open = True
+    #     s.enable(False)
