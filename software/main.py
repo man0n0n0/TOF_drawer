@@ -1,4 +1,5 @@
 from machine import UART,Pin, I2C
+import _thread
 from ssd1306 import SSD1306_I2C
 from time import sleep_ms
 from stepper import Stepper
@@ -68,12 +69,11 @@ def main():
     
     drawer_closed = True
     #homing(homing_speed)
-    s.enable(False)  
     
     while True:
         radar.read()
         d = radar.moving_target_distance()*10
-        print(f'{drawer_closed}//{d}')
+        
         if radar.moving_target_detected() and d < d_threshold and not drawer_closed:
             #CLOSING DRAWER
             s.enable(True)
@@ -83,13 +83,12 @@ def main():
                 s.speed(vel)
                 s.target(10 * step_per_mm)
                 sleep_ms(5)
-                
+            sleep_ms(100)
             #homing(homing_speed)
-            drawer_closed = True
-            print(wait_inside)
-            sleep_ms(wait_inside)
 
             s.enable(False)
+            drawer_closed = True
+
 
         elif drawer_closed:
             # DRAWER OPENING
@@ -104,7 +103,7 @@ def main():
             s.enable(False)
         
         else:
-            display_msg(f"OPENED!\n\nwatching....")
+            display_msg(f"OPENED!\n{d}\nwatching....")
 
 if __name__ == "__main__":
     main()
