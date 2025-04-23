@@ -1,8 +1,8 @@
-from machine import Pin, I2C
+from machine import UART,Pin, I2C
 from ssd1306 import SSD1306_I2C
 from time import sleep_ms
 from stepper import Stepper
-import ld2410
+from ld2410 import LD2410
 import json
 
 # Constants
@@ -12,8 +12,14 @@ CONFIG_FILE = 'config.json'
 i2c = I2C(0, sda=Pin(5), scl=Pin(6))
 display = SSD1306_I2C(70, 40, i2c)
 s = Stepper(step_pin=2, dir_pin=1, en_pin=7, invert_dir=True)
-end_s = Pin(3, Pin.IN, Pin.PULL_UP)
-radar = ld2410.LD2410(baudrate= 256000,uart_num=1, tx_pin=9, rx_pin=8)
+end_s = Pin(4, Pin.IN, Pin.PULL_UP)
+    # Initialize UART
+uart = UART(1, baudrate=256000)
+uart.init(tx=Pin(10), rx=Pin(3))
+    # Create radar instance
+radar = LD2410()
+radar.begin(uart)
+
 
 def load_config():
     """Load configuration from JSON file or use defaults"""
@@ -48,7 +54,7 @@ def main():
     # Load configuration
     config = load_config()
     if not config:
-        display_msg("No JSON/ncheck files/n")
+        display_msg("No JSON\ncheck files\n")
 
     # Get all variables from config
     d_threshold = config["d_threshold"]
@@ -60,35 +66,45 @@ def main():
     d_out = config["d_out"]
     homing_speed = config["homing_speed"]
     
-    drawer_open = False
-    homing(homing_speed)
+    drawer_closed = True
+    #homing(homing_speed)
     s.enable(False)  
     
     while True:
-        d = radar.get_distance() * 10  # Convert to mm from cm
-        print(".")
-        if d < d_threshold and not drawer_open:
+        radar.read()
+        d = radar.moving_target_distance()*10
+        print(f'{drawer_closed}//{d}')
+        if radar.moving_target_detected() and d < d_threshold and not drawer_closed:
+            #CLOSING DRAWER
             s.enable(True)
-            display_msg(f"detected: {d}mm\nopening drawer")
-            s.track_target()
-            s.speed(forw_speed)
-            s.target(d_out * step_per_mm)
-            drawer_open = True
-            s.enable(False)
-
-        elif d > d_threshold and drawer_open:
-            s.enable(True)
-            display_msg(f"no detection\nclosing drawer")
+            display_msg(f"{d}\n closing \n  drawer")
             
             for vel in range(100, back_speed, 100):
                 s.speed(vel)
                 s.target(10 * step_per_mm)
                 sleep_ms(5)
                 
-            homing(homing_speed)
+            #homing(homing_speed)
+            drawer_closed = True
+            print(wait_inside)
             sleep_ms(wait_inside)
-            drawer_open = False
-            s.enable(False)  # Disable motor to save power
+
+            s.enable(False)
+
+        elif drawer_closed:
+            # DRAWER OPENING
+            s.enable(True)
+            display_msg(f"opening drawer")
+
+            s.track_target()
+            s.speed(forw_speed)
+            s.target(d_out * step_per_mm)
+
+            drawer_closed = False
+            s.enable(False)
+        
+        else:
+            display_msg(f"OPENED!\n\nwatching....")
 
 if __name__ == "__main__":
     main()

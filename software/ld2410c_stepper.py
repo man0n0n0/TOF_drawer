@@ -1,9 +1,11 @@
 import os
-from machine import Pin, I2C
+from machine import UART,Pin, I2C
 from ssd1306 import SSD1306_I2C  
 from time import sleep_ms
 from stepper import Stepper
-import ld2410  # Import the LD2410 library
+from ld2410 import LD2410
+
+
 
 '''piece variable'''
 steps_per_rev = 3200
@@ -44,7 +46,14 @@ def homing():
 i2c = I2C(0, sda=Pin(5), scl=Pin(6))
 
 '''LD2410 radar'''
-radar = ld2410.LD2410(baudrate= 256000,uart_num=1, tx_pin=3, rx_pin=10)
+# Initialize UART
+uart = UART(1, baudrate=256000)
+uart.init(tx=Pin(10), rx=Pin(3))
+
+# Create radar instance
+radar = LD2410()
+radar.begin(uart)
+
 
 '''embeded display'''
 display = SSD1306_I2C(70, 40, i2c)
@@ -59,13 +68,14 @@ end_s = Pin(3, Pin.IN, Pin.PULL_UP)
 drawer_open = False
 
 while True:
-    # if radar.is_presence_detected(): # do we need to have detected presence to move ?
-    d = radar.get_moving_distance() * 10  # Convert to mm from cm
-    human = radar.is_stationary_detected()
+    # Read data from sensor
+    radar.read()
     
-    display_msg(f"radar : {d}")
-    print(f'{human}')
-    sleep_ms(500)
+    # Check if targets are detected
+    if radar.moving_target_detected():
+       display_msg(f"radar :\n {radar.moving_target_distance()*10}")
+    else :
+        display_msg("NOT MOVING")
 
     # if d < d_threshold and drawer_open:
     #     s.enable(True)
