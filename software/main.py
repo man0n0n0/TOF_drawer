@@ -1,5 +1,4 @@
 from machine import UART,Pin, I2C
-import _thread
 from ssd1306 import SSD1306_I2C
 from time import sleep_ms
 from stepper import Stepper
