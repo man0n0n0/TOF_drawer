@@ -84,7 +84,7 @@
 <body>
     <div class="container">
         <h1>ALINE BOUVY: Drawer Variables</h1>
-        <p> modify variables needed save and reboot the drawer for changes to be effective in the device</p>
+        <p> modify variables needed and save settings. The drawer will then reboot by itself in operating mode</p>
         
         <div id="message" class="message"></div>
         
@@ -110,6 +110,14 @@
                 <div class="slider-container">
                     <input type="range" id="d_threshold" name="d_threshold" min="500" max="3000" value="{{d_threshold}}" oninput="updateSliderValue('d_threshold', 'd_thresholdValue')">
                     <span id="d_thresholdValue" class="value-display">{{d_threshold}}</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="d_threshold">Waiting time after retraction:</label>
+                <div class="slider-container">
+                    <input type="range" id="wait_inside" name="wait_inside" min="500" max="3000" value="{{wait_inside}}" oninput="updateSliderValue('wait_inside', 'wait_insideValue')">
+                    <span id="wait_insideValue" class="value-display">{{wait_inside}}</span>
                 </div>
             </div>
             

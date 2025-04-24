@@ -94,77 +94,72 @@ def radar_thread(uart, threshold):
                     
         sleep_ms(50)  # Small delay to prevent CPU hogging
 
-def main():
-    # Initialize hardware
-    i2c = I2C(0, sda=Pin(5), scl=Pin(6))
-    display = SSD1306_I2C(70, 40, i2c)
-    s = Stepper(step_pin=2, dir_pin=1, en_pin=7, invert_dir=True)
-    end_s = Pin(4, Pin.IN, Pin.PULL_UP)
-    
-    # Initialize UART for radar
-    uart = UART(1, baudrate=256000)
-    uart.init(tx=Pin(10), rx=Pin(3))
-    
-    # Load configuration
-    config = load_config()
-    if not config:
-        display_msg(display, "Config Error\nUsing defaults")
-        config = DEFAULT_CONFIG
-    
-    # Get configuration variables
-    d_threshold = config["d_threshold"]
-    back_speed = config["back_speed"]
-    forw_speed = config["forw_speed"]
-    wait_inside = config["wait_inside"]
-    steps_per_rev = config["steps_per_rev"]
-    step_per_mm = config["step_per_mm"]
-    d_out = config["d_out"]
-    homing_speed = config["homing_speed"]
-    
-    # Start radar thread
-    global drawer_closed, drawer_state_change
-    _thread.start_new_thread(radar_thread, (uart, d_threshold))
-    
-    # Home the drawer mechanism
-    s.enable(False)  # Initially disable stepper to save power
-    homing(s, end_s, display, homing_speed)
-    drawer_closed = True
-    
-    # Main loop
-    while True:
-        if drawer_state_change:
-            drawer_state_change = False
-            
-            if motion_detected and not drawer_closed:
-                # CLOSE DRAWER
-                display_msg(display, f"Distance: {radar_distance}\nClosing drawer...")
-                s.enable(True)
-                
-                for vel in range(100, back_speed, 100):
-                    s.speed(vel)
-                    s.target(10 * step_per_mm)
-                    sleep_ms(5)
-                
-                sleep_ms(100)
-                homing(s, end_s, display, homing_speed)
+# Initialize hardware
+i2c = I2C(0, sda=Pin(5), scl=Pin(6))
+display = SSD1306_I2C(70, 40, i2c)
+s = Stepper(step_pin=2, dir_pin=1, en_pin=7, invert_dir=True)
+end_s = Pin(8, Pin.IN, Pin.PULL_UP)
 
-                drawer_closed = True
-                s.enable(False)  # Disable stepper
-                sleep_ms(wait_inside)
-                
-            elif not motion_detected and drawer_closed:
-                # OPEN DRAWER
-                display_msg(display, "Opening drawer...")
-                s.enable(True)
-                s.track_target()
-                s.speed(forw_speed)
-                s.target(d_out * step_per_mm)
-                drawer_closed = False
-                sleep_ms(500)  # Wait for movement to start
-                s.enable(False)  # Disable stepper
-            
-        display_msg(display, f"d: {radar_distance}\n")
-        sleep_ms(200)
+# Initialize UART for radar
+uart = UART(1, baudrate=256000)
+uart.init(tx=Pin(10), rx=Pin(3))
 
-if __name__ == "__main__":
-    main()
+# Load configuration
+config = load_config()
+if not config:
+    display_msg(display, "Config Error\nUsing defaults")
+    config = DEFAULT_CONFIG
+
+# Get configuration variables
+d_threshold = config["d_threshold"]
+back_speed = config["back_speed"]
+forw_speed = config["forw_speed"]
+wait_inside = config["wait_inside"]
+steps_per_rev = config["steps_per_rev"]
+step_per_mm = config["step_per_mm"]
+d_out = config["d_out"]
+homing_speed = config["homing_speed"]
+
+# Start radar thread
+_thread.start_new_thread(radar_thread, (uart, d_threshold))
+
+# Home the drawer mechanism
+s.enable(False)  # Initially disable stepper to save power
+homing(s, end_s, display, homing_speed)
+drawer_closed = True
+
+# Main loop
+while True:
+    if drawer_state_change:
+        drawer_state_change = False
+        
+        if motion_detected and not drawer_closed:
+            # CLOSE DRAWER
+            display_msg(display, f"Distance: {radar_distance}\nClosing drawer...")
+            s.enable(True)
+            
+            for vel in range(100, back_speed, 100):
+                s.speed(vel)
+                s.target(10 * step_per_mm)
+                sleep_ms(5)
+            
+            sleep_ms(100)
+            homing(s, end_s, display, homing_speed)
+
+            drawer_closed = True
+            s.enable(False)  # Disable stepper
+            sleep_ms(wait_inside)
+            
+        elif not motion_detected and drawer_closed:
+            # OPEN DRAWER
+            display_msg(display, "Opening drawer...")
+            s.enable(True)
+            s.track_target()
+            s.speed(forw_speed)
+            s.target(d_out * step_per_mm)
+            drawer_closed = False
+            sleep_ms(500)  # Wait for movement to start
+            s.enable(False)  # Disable stepper
+        
+    display_msg(display, f"d: {radar_distance}\n")
+    sleep_ms(200)
