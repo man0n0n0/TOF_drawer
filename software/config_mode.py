@@ -10,7 +10,7 @@ INDEX_FILE = 'index.html'
 
 def display_msg(display, msg):
     display.fill(0)
-    display.text("bouvy_drawer", 0, 0, 1)
+    display.text("AB_DRAWER", 0, 0, 1)
     y = 10
     for line in msg.split('\n'):
         display.text(line, 0, y, 1)
@@ -28,7 +28,7 @@ ip = ap.ifconfig()[0]
 # Setup display
 i2c = I2C(0, sda=Pin(5), scl=Pin(6))
 display = SSD1306_I2C(70, 40, i2c)
-display_msg(display, f"CONFIG-MODE\n{ip[:6]}\n{ip[6:]}")
+display_msg(display, f"CONFIG-MODE\n {ip[:7]}\n  {ip[7:]}")
 
 # Create server
 s = socket.socket()

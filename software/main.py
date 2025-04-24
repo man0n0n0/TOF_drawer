@@ -40,7 +40,7 @@ def load_config():
 def display_msg(display, msg):
     """Display message on OLED screen"""
     display.fill(0)
-    display.text("Bouvy Drawer", 0, 0, 1)
+    display.text("AB_DRAWER", 0, 0, 1)
     y = 12
     for line in msg.split('\n'):
         display.text(line, 0, y, 1)
@@ -143,12 +143,15 @@ while True:
                 s.target(10 * step_per_mm)
                 sleep_ms(5)
             
-            sleep_ms(100)
+            sleep_ms(400)
             homing(s, end_s, display, homing_speed)
 
             drawer_closed = True
             s.enable(False)  # Disable stepper
+            display_msg(display, f"waiting\ninside\nfor{wait_inside/1000}sec")
             sleep_ms(wait_inside)
+
+
             
         elif not motion_detected and drawer_closed:
             # OPEN DRAWER
