@@ -25,13 +25,13 @@ sleep_ms(100)
 led.value(0)
 sleep_ms(100)
 
-# if b_boot.value() == 0:
-#     pass
+if b_boot.value() == 1:
+    pass
 
-# elif b_config.value() == 1: 
-#     import config_mode
+elif b_config.value() == 1: 
+    import config_mode
 
-# else :
-#     import ld2410c_stepper
+else :
+    import main_threaded
 
 

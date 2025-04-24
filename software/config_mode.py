@@ -1,16 +1,16 @@
-"""Minimal drawer configuration server"""
 import network
 import json
-from machine import Pin, I2C
+from machine import Pin, I2C, reset
 from ssd1306 import SSD1306_I2C
 import socket
+import time
 
 CONFIG_FILE = 'config.json'
 INDEX_FILE = 'index.html'
 
-def display_msg(msg):
+def display_msg(display, msg):
     display.fill(0)
-    display.text("bouvy_drawer", 5, 0, 1)
+    display.text("bouvy_drawer", 0, 0, 1)
     y = 10
     for line in msg.split('\n'):
         display.text(line, 0, y, 1)
@@ -27,7 +27,7 @@ def main():
     # Setup display
     i2c = I2C(0, sda=Pin(5), scl=Pin(6))
     display = SSD1306_I2C(70, 40, i2c)
-    display_msg("SETUP MODE/nconnect to:/n{ip}:port")
+    display_msg(display, f"CONFIG-MODE\n{ip[:6]}\n{ip[6:]}")
     
     # Create server
     s = socket.socket()
@@ -40,14 +40,19 @@ def main():
         with open(CONFIG_FILE, 'r') as f:
             config = json.loads(f.read())
     except:
-        display_msg("SETUP MODE/njson error/ncheck your file")
-
+        config = {
+            "d_threshold": 1000,
+            "back_speed": 6000,
+            "forw_speed": 1000
+        }
+        display_msg(display, "CONFIG-MODE\njson error")
     
     # Main server loop
     while True:
         try:
             client, _ = s.accept()
             req = client.recv(1024)
+            reboot_needed = False
             
             # Handle POST request
             if req.startswith(b'POST'):
@@ -63,8 +68,9 @@ def main():
                     # Save config
                     with open(CONFIG_FILE, 'w') as f:
                         f.write(json.dumps(config))
-                        
-                    message = "Settings saved!"
+                    
+                    message = "Settings saved! Rebooting..."
+                    reboot_needed = True
                 except:
                     message = "Error saving settings"
             else:
@@ -74,7 +80,6 @@ def main():
             try:
                 with open(INDEX_FILE, 'r') as f:
                     html = f.read()
-                
                 # Replace placeholders
                 for key in config:
                     html = html.replace(f'{{{{{key}}}}}', str(config[key]))
@@ -82,25 +87,34 @@ def main():
                 # Add message if needed
                 if message:
                     js = f"""<script>
-                        window.onload=function(){{
-                            var m=document.getElementById('message');
-                            if(m){{m.textContent="{message}";
+                    window.onload=function(){{
+                        var m=document.getElementById('message');
+                        if(m){{
+                            m.textContent="{message}";
                             m.style.display='block';
-                            setTimeout(function(){{m.style.display='none';}},3000);}}
-                        }};
+                            setTimeout(function(){{m.style.display='none';}},3000);
+                        }}
+                    }};
                     </script>"""
                     html = html.replace('</body>', f'{js}</body>')
             except:
                 html = f"""<html><body>
-                    <h1>Error: Cannot load template</h1>
-                    <p>Settings: {json.dumps(config)}</p>
+                <h1>Error: Cannot load template</h1>
+                <p>Settings: {json.dumps(config)}</p>
                 </body></html>"""
             
             # Send response
             client.send('HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n')
             client.send(html)
             client.close()
-        except:
+            
+            # Reboot if needed
+            if reboot_needed:
+                display_msg(display, "Settings saved\nRebooting...")
+                time.sleep(2)  # Give time for the page to load
+                reset()  # Reboot the board
+                
+        except Exception as e:
             try:
                 client.close()
             except:
