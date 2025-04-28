@@ -61,6 +61,7 @@ def homing(stepper, end_switch, display, speed):
     stepper.stop()
     stepper.overwrite_pos(0)
     stepper.target(0)
+    stepper.enable(False)
     display_msg(display, " HOMED!\n")
 
 def radar_thread(uart, threshold):
@@ -97,7 +98,12 @@ def radar_thread(uart, threshold):
 # Initialize hardware
 i2c = I2C(0, sda=Pin(5), scl=Pin(6))
 display = SSD1306_I2C(70, 40, i2c)
-s = Stepper(step_pin=2, dir_pin=1, en_pin=7, invert_dir=True)
+#s = Stepper(step_pin=1, dir_pin=2, en_pin=7, invert_dir=True)
+dir_pin = Pin(0, Pin.OUT)
+step_pin = Pin(2, Pin.OUT)
+en_pin = Pin(7, Pin.OUT)
+s = Stepper(step_pin,dir_pin,en_pin,invert_dir=True,timer_id=0) #stp,dir,en
+
 end_s = Pin(8, Pin.IN, Pin.PULL_UP)
 
 # Initialize UART for radar
@@ -124,7 +130,6 @@ homing_speed = config["homing_speed"]
 _thread.start_new_thread(radar_thread, (uart, d_threshold))
 
 # Home the drawer mechanism
-s.enable(False)  # Initially disable stepper to save power
 homing(s, end_s, display, homing_speed)
 drawer_closed = True
 
