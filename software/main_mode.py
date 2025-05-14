@@ -9,7 +9,7 @@ from ld2410 import LD2410
 # Constants
 CONFIG_FILE = 'config.json'
 DEFAULT_CONFIG = {
-    "d_threshold": 1000,
+    "d_threshold": 500,
     "back_speed": 8100,
     "forw_speed": 1100,
     "wait_inside": 3000,
@@ -20,11 +20,10 @@ DEFAULT_CONFIG = {
 }
 
 # Global variables for thread communication
-radar_d = 0
-motion_detected = False
+r_d = 0
+human = False
 thread_running = True
-drawer_state_change = False
-drawer_closed = True
+
 
 def load_config():
     """Load configuration from JSON file or use defaults"""
@@ -47,45 +46,26 @@ def display_msg(display, msg):
         y += 10
     display.show()
 
-def homing(stepper, end_switch, display, speed):
-    """Home the drawer mechanism"""
-    display_msg(display, "Homing...")
-    stepper.enable()
-    stepper.set_speed(speed)
-    start_continuous(-1) # Move toward home switch
-    
-    # Wait until home switch is triggered
-    while end_switch.value() == 1:
-        pass
-    
-    stepper.stop()
-    stepper.overwrite_pos(0)
-    stepper.target(0)
-    stepper.enable(False)
-    display_msg(display, " HOMED!\n")
-
-def radar_thread(uart, threshold):
+def r_thread(uart, threshold):
     """Thread function to continuously read radar data"""
-    global radar_d, motion_detected, thread_running
+    global r_d, human, thread_running
     
-    # Initialize radar
-    radar = LD2410()
-    radar.begin(uart)
+    # Initialize r
+    r = LD2410()
+    r.begin(uart)
     
     while thread_running:
         # Read radar data
-        radar.read()
+        r.read()
 
         # Check if targets are detected
-        if radar.moving_target_detected():
-            radar_d = radar.moving_target_distance() * 10  # Convert to mm
-            if radar_d < threshold:
-                motion_detected = True
+        if r.stationary_target_detected():
+            r_d = r.stationary_target_distance() * 10
+            if r_d < threshold:
+                human = True
+            else:
+                human = False
 
-        else:
-            motion_detected = False
-
-        print(radar_d)
         sleep_ms(100)  # Small delay to prevent CPU hogging
 
 # Initialize hardware
@@ -124,9 +104,11 @@ s = DM332TStepper(
 # End switch declaration
 end_s = Pin(8, Pin.IN, Pin.PULL_UP)
 
-# Initialize UART for radar
+# Initialize UART
 uart = UART(1, baudrate=256000)
 uart.init(tx=Pin(10), rx=Pin(3))
+#r object
+r = LD2410()
 
 # Load configuration
 config = load_config()
@@ -148,7 +130,7 @@ homing_speed = config["homing_speed"]
 s.steps_per_mm = step_per_mm
 
 # Start radar thread
-_thread.start_new_thread(radar_thread, (uart, d_threshold))
+_thread.start_new_thread(r_thread, (uart, d_threshold))
 
 # Configure acceleration
 s.set_acceleration(1000)  # 1000 steps/second²
@@ -164,35 +146,37 @@ display_msg(display, " HOMED!\n")
 drawer_closed = True
 
 # Main loop
-while True:
-    if drawer_state_change:
-        drawer_state_change = False
+while True:  
+
+    print(r_d, human)
+
+
+    if human and not drawer_closed:
+        # CLOSE DRAWER
+        print("close drawer")
+        display_msg(display, f"Distance: {r_d}\nClosing drawer...")
+        s.enable()
         
-        if motion_detected and not drawer_closed:
-            # CLOSE DRAWER
-            display_msg(display, f"Distance: {radar_d}\nClosing drawer...")
-            s.enable()
-            
-            s.move_mm(3)
-            
-            sleep_ms(400)
-            s.home(end_s, homing_speed=homing_speed, acceleration=1000)
+        s.move_mm(3)
+        sleep_ms(400)
+        s.home(end_s, homing_speed=homing_speed)
 
-            drawer_closed = True
-            s.disable()  # Disable stepper
-            display_msg(display, f"waiting\ninside\nfor{wait_inside/1000}sec")
-            sleep_ms(wait_inside)
-            
-        elif not motion_detected and drawer_closed:
-            # OPEN DRAWER
-            display_msg(display, "Opening drawer...")
-
-            s.enable()
-            s.move_mm(d_out)
-
-            drawer_closed = False
-            sleep_ms(500)  # Wait for movement to start
-            s.disable()  # Disable stepper
+        drawer_closed = True
+        s.disable()  # Disable stepper
+        display_msg(display, f"waiting\ninside\nfor{wait_inside/1000}sec")
+        sleep_ms(wait_inside)
         
-    #display_msg(display, f"d: {radar_d}\n")
-    sleep_ms(200)
+    elif not human and drawer_closed:
+        # OPEN DRAWER
+        print("open_drawer")
+        display_msg(display, "Opening \n drawer...")
+
+        s.enable()
+        s.move_mm(d_out)
+
+        drawer_closed = False
+        sleep_ms(500)  # Wait for movement to start
+        display_msg(display, "OPENED! \n WATCHING...")
+        s.disable()  # Disable stepper
+        
+    sleep_ms(100)

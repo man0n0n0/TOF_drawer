@@ -14,10 +14,7 @@ radar.begin(uart)
 while True:
     # Read data from sensor
     radar.read()
-    
-    # Check if targets are detected
-    if radar.moving_target_detected():
-            print(f"Moving target: {radar.moving_target_distance()}cm, energy: {radar.moving_target_energy()}")
+    print(f"Stationary target: {radar.stationary_target_distance()}cm, energy: {radar.stationary_target_energy()}")
 
     time.sleep(0.1)
 
