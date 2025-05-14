@@ -5,8 +5,6 @@ from time import sleep_ms
 from stepper import Stepper
 from ld2410 import LD2410
 
-
-
 '''piece variable'''
 steps_per_rev = 3200
 step_per_mm = 25.6 #https://blog.prusa3d.com/calculator_3416/

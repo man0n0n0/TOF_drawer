@@ -20,7 +20,7 @@ DEFAULT_CONFIG = {
 }
 
 # Global variables for thread communication
-radar_distance = 0
+radar_d = 0
 motion_detected = False
 thread_running = True
 drawer_state_change = False
@@ -50,9 +50,9 @@ def display_msg(display, msg):
 def homing(stepper, end_switch, display, speed):
     """Home the drawer mechanism"""
     display_msg(display, "Homing...")
-    stepper.enable(True)
-    stepper.speed(speed)
-    stepper.free_run(-1)  # Move toward home switch
+    stepper.enable()
+    stepper.set_speed(speed)
+    start_continuous(-1) # Move toward home switch
     
     # Wait until home switch is triggered
     while end_switch.value() == 1:
@@ -66,7 +66,7 @@ def homing(stepper, end_switch, display, speed):
 
 def radar_thread(uart, threshold):
     """Thread function to continuously read radar data"""
-    global radar_distance, motion_detected, thread_running, drawer_state_change, drawer_closed
+    global radar_d, motion_detected, thread_running
     
     # Initialize radar
     radar = LD2410()
@@ -74,41 +74,54 @@ def radar_thread(uart, threshold):
     
     while thread_running:
         # Read radar data
-        if radar.read():
-            if radar.moving_target_detected():
-                distance = radar.moving_target_distance() * 10  # Convert to mm
-                radar_distance = distance
-                
-                # Check if motion is detected within threshold
-                if distance < threshold:
-                    motion_detected = True
-                    if not drawer_closed:
-                        drawer_state_change = True
-                else:
-                    motion_detected = False
-                    if drawer_closed:
-                        drawer_state_change = True
-            else:
-                motion_detected = False
-                if drawer_closed:
-                    drawer_state_change = True
-                    
-        sleep_ms(50)  # Small delay to prevent CPU hogging
+        radar.read()
+
+        # Check if targets are detected
+        if radar.moving_target_detected():
+            radar_d = radar.moving_target_distance() * 10  # Convert to mm
+            if radar_d < threshold:
+                motion_detected = True
+
+        else:
+            motion_detected = False
+
+        print(radar_d)
+        sleep_ms(100)  # Small delay to prevent CPU hogging
 
 # Initialize hardware
 i2c = I2C(0, sda=Pin(5), scl=Pin(6))
 display = SSD1306_I2C(70, 40, i2c)
 
 # Initialize stepper motor with DM332T driver
-dir_pin = Pin(0, Pin.OUT)
-step_pin = Pin(2, Pin.OUT)
-en_pin = Pin(7, Pin.OUT)
-s = DM332TStepper(step_pin=step_pin, 
-                  dir_pin=dir_pin, 
-                  en_pin=en_pin, 
-                  invert_dir=True, 
-                  timer_id=0)
+# Configuration
+STEP_PIN = 0     # GPIO pin connected to STEP input on DM332T
+DIR_PIN = 2      # GPIO pin connected to DIR input on DM332T  
+ENABLE_PIN = 7   # GPIO pin connected to ENA input on DM332T (optional)
+HOME_SWITCH_PIN = 3  # GPIO pin connected to home switch
 
+# Set steps per revolution based on DM332T microstepping setting
+# Common values: 
+# - 200 (full step, no microstepping)
+# - 400 (half step)
+# - 1600 (1/8 step)
+# - 3200 (1/16 step)
+STEPS_PER_REV = 3200
+
+# For linear movements - steps per millimeter
+# This value needs to be calibrated for your specific setup
+# For a belt drive with 20 teeth pulley, 2mm pitch, and 1/16 microstepping:
+# (200 steps/rev × 16 microsteps) ÷ (20 teeth × 2mm) = 80 steps/mm
+STEPS_PER_MM = 25.6
+
+s = DM332TStepper(
+    step_pin=STEP_PIN,
+    dir_pin=DIR_PIN,
+    enable_pin=ENABLE_PIN,
+    steps_per_rev=STEPS_PER_REV,
+    steps_per_mm=STEPS_PER_MM
+)
+
+# End switch declaration
 end_s = Pin(8, Pin.IN, Pin.PULL_UP)
 
 # Initialize UART for radar
@@ -137,8 +150,17 @@ s.steps_per_mm = step_per_mm
 # Start radar thread
 _thread.start_new_thread(radar_thread, (uart, d_threshold))
 
+# Configure acceleration
+s.set_acceleration(1000)  # 1000 steps/second²
+s.set_deceleration(1000)  # 1000 steps/second²
+s.enable_acceleration()   # Make sure acceleration is enabled
+s.enable()
+
 # Home the drawer mechanism
-homing(s, end_s, display, homing_speed)
+#homing(s, end_s, display, homing_speed)
+display_msg(display, "Homing...")
+s.home(end_s, homing_speed=homing_speed, acceleration=1000)
+display_msg(display, " HOMED!\n")
 drawer_closed = True
 
 # Main loop
@@ -148,32 +170,29 @@ while True:
         
         if motion_detected and not drawer_closed:
             # CLOSE DRAWER
-            display_msg(display, f"Distance: {radar_distance}\nClosing drawer...")
-            s.enable(True)
+            display_msg(display, f"Distance: {radar_d}\nClosing drawer...")
+            s.enable()
             
-            for vel in range(100, back_speed, 100):
-                s.speed(vel)
-                s.target(10 * step_per_mm)
-                sleep_ms(5)
+            s.move_mm(3)
             
             sleep_ms(400)
-            homing(s, end_s, display, homing_speed)
+            s.home(end_s, homing_speed=homing_speed, acceleration=1000)
 
             drawer_closed = True
-            s.enable(False)  # Disable stepper
+            s.disable()  # Disable stepper
             display_msg(display, f"waiting\ninside\nfor{wait_inside/1000}sec")
             sleep_ms(wait_inside)
             
         elif not motion_detected and drawer_closed:
             # OPEN DRAWER
             display_msg(display, "Opening drawer...")
-            s.enable(True)
-            s.track_target()
-            s.speed(forw_speed)
-            s.target(d_out * step_per_mm)
+
+            s.enable()
+            s.move_mm(d_out)
+
             drawer_closed = False
             sleep_ms(500)  # Wait for movement to start
-            s.enable(False)  # Disable stepper
+            s.disable()  # Disable stepper
         
-    display_msg(display, f"d: {radar_distance}\n")
+    #display_msg(display, f"d: {radar_d}\n")
     sleep_ms(200)

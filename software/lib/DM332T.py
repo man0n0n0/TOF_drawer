@@ -1,27 +1,6 @@
 """
-MicroPython library for controlling stepper motors using DM332T drivers.
-Provides easy-to-use functions for precise control of stepper motors in various applications.
-
-Created for ESP32 and similar microcontrollers.
-
-Example usage:
-    from DM332T import DM332TStepper
-    from machine import Pin
-    
-    # Initialize with step pin, direction pin
-    stepper = DM332TStepper(step_pin=0, dir_pin=2, steps_per_mm=25.6) 
-    
-    # Basic movements
-    stepper.move_steps(1600)  # Move 1600 steps
-    stepper.move_to_position(3200)  # Move to absolute position 3200
-    
-    # Speed control
-    stepper.set_speed(1000)  # Set speed to 1000 steps/second
-    stepper.set_acceleration(500)  # Set acceleration to 500 steps/second²
-    
-    # Metric movements
-    stepper.move_mm(100)  # Move 100mm forward
-    stepper.move_to_mm(50)  # Move to absolute position 50mm
+DM332T Stepper Motor Library - Fixed Version
+For ESP32 and similar microcontrollers
 """
 
 import time
@@ -30,29 +9,38 @@ from machine import Pin, Timer
 class DM332TStepper:
     """
     Class for controlling stepper motors with DM332T drivers in MicroPython.
-    
-    The DM332T driver requires step and direction signals to control the motor.
-    This class provides methods for configuring the driver and controlling the motor.
     """
     
     def __init__(self, step_pin, dir_pin, enable_pin=None, steps_per_rev=3200, 
-                 steps_per_mm=25.6, invert_dir=False):
+                 steps_per_mm=25.6, invert_dir=False, timer_id=0):
         """
         Initialize the stepper motor controller.
         
         Args:
-            step_pin (int): GPIO pin number for step signal
-            dir_pin (int): GPIO pin number for direction signal
-            enable_pin (int, optional): GPIO pin number for enable signal
+            step_pin (int or Pin): GPIO pin number or Pin object for step signal
+            dir_pin (int or Pin): GPIO pin number or Pin object for direction signal
+            enable_pin (int or Pin, optional): GPIO pin number or Pin object for enable signal
             steps_per_rev (int, optional): Steps per revolution (default: 3200)
             steps_per_mm (float, optional): Steps per millimeter for linear movement (default: 25.6)
             invert_dir (bool, optional): Invert direction logic (default: False)
+            timer_id (int, optional): Timer ID to use for step generation (default: 0)
         """
-        self.step_pin = Pin(step_pin, Pin.OUT)
-        self.dir_pin = Pin(dir_pin, Pin.OUT)
+        # Create Pin objects if integers are provided
+        if isinstance(step_pin, int):
+            self.step_pin = Pin(step_pin, Pin.OUT)
+        else:
+            self.step_pin = step_pin
+            
+        if isinstance(dir_pin, int):
+            self.dir_pin = Pin(dir_pin, Pin.OUT)
+        else:
+            self.dir_pin = dir_pin
         
         if enable_pin is not None:
-            self.enable_pin = Pin(enable_pin, Pin.OUT)
+            if isinstance(enable_pin, int):
+                self.enable_pin = Pin(enable_pin, Pin.OUT)
+            else:
+                self.enable_pin = enable_pin
             self.has_enable = True
         else:
             self.has_enable = False
@@ -60,19 +48,17 @@ class DM332TStepper:
         self.steps_per_rev = steps_per_rev
         self.steps_per_mm = steps_per_mm
         self.invert_dir = invert_dir
+        self._timer_id = timer_id
         
         self._current_position = 0
         self._target_position = 0
-        self._current_speed = 0  # Current speed in steps per second
-        self._max_speed = 1000  # Target speed in steps per second
+        self._speed = 1000  # steps per second
         self._acceleration = 500  # steps per second^2 (default)
-        self._deceleration = 500  # steps per second^2 (default)
-        self._min_step_delay = 0.00005  # 50 microseconds minimum pulse width
+        self._min_pulse_width = 10  # microseconds
         self._direction = 1  # 1 or -1
         self._is_running = False
         self._timer = None
-        self._last_step_time = 0  # in microseconds
-        self._step_interval = 1000000 / self._max_speed  # in microseconds
+        self._step_interval = 1000000 / self._speed  # in microseconds
         self._use_acceleration = True  # Whether to use acceleration or not
         
         # Initialize pins
@@ -80,42 +66,34 @@ class DM332TStepper:
         self.set_direction(1)
         
         if self.has_enable:
-            self.enable()
+            self.enable(False)  # Default to disabled
     
     def _calculate_step_interval(self):
         """Calculate the step interval in microseconds based on speed."""
-        if self._current_speed > 0:
-            self._step_interval = 1000000 / self._current_speed
+        if self._speed > 0:
+            self._step_interval = 1000000 / self._speed
         else:
             self._step_interval = 1000000  # Default to 1 step per second
     
+    def speed(self, speed):
+        """
+        Set the motor speed in steps per second.
+        
+        Args:
+            speed (float): Speed in steps per second (always positive)
+        """
+        self._speed = abs(speed)  # Ensure speed is positive
+        self._calculate_step_interval()
+    
     def set_speed(self, speed):
         """
-        Set the motor maximum speed in steps per second.
+        Set the motor speed in steps per second.
+        Alias for speed() for compatibility.
         
         Args:
-            speed (float): Speed in steps per second
+            speed (float): Speed in steps per second (always positive)
         """
-        if speed < 0:
-            speed = -speed
-            self.set_direction(-1)
-        else:
-            self.set_direction(1)
-            
-        self._max_speed = speed
-        if not self._use_acceleration:
-            self._current_speed = speed
-            self._calculate_step_interval()
-        
-    def set_current_speed(self, speed):
-        """
-        Set the motor current speed in steps per second immediately.
-        
-        Args:
-            speed (float): Speed in steps per second
-        """
-        self._current_speed = abs(speed)
-        self._calculate_step_interval()
+        self.speed(speed)
         
     def set_acceleration(self, acceleration):
         """
@@ -133,26 +111,17 @@ class DM332TStepper:
         Args:
             deceleration (float): Deceleration in steps/second²
         """
-        self._deceleration = deceleration
+        # In this simplified version, we use the same value for acceleration and deceleration
+        self._acceleration = deceleration
         
     def disable_acceleration(self):
         """Disable acceleration/deceleration for movements."""
         self._use_acceleration = False
-        self._current_speed = self._max_speed
         
     def enable_acceleration(self):
         """Enable acceleration/deceleration for movements."""
         self._use_acceleration = True
         
-    def set_steps_per_mm(self, steps):
-        """
-        Set the steps per millimeter calibration value.
-        
-        Args:
-            steps (float): Number of steps per millimeter of linear movement
-        """
-        self.steps_per_mm = steps
-    
     def set_direction(self, direction):
         """
         Set the motor direction.
@@ -164,65 +133,28 @@ class DM332TStepper:
         dir_value = 1 if (direction > 0) != self.invert_dir else 0
         self.dir_pin.value(dir_value)
         
-    def enable(self):
-        """Enable the motor driver (if enable pin is connected)."""
+    def enable(self, state=True):
+        """
+        Enable or disable the motor driver.
+        
+        Args:
+            state (bool, optional): True to enable, False to disable (default: True)
+        """
         if self.has_enable:
-            self.enable_pin.value(0)  # Enable is active LOW on most drivers
+            self.enable_pin.value(not state)  # Enable is active LOW on most drivers
     
     def disable(self):
-        """Disable the motor driver (if enable pin is connected)."""
-        if self.has_enable:
-            self.enable_pin.value(1)  # Disable with HIGH
+        """Disable the motor driver."""
+        self.enable(False)
     
     def _step(self):
         """Generate a single step pulse."""
         self.step_pin.value(1)
-        time.sleep_us(int(self._min_step_delay * 1000000))  # Convert to microseconds
+        time.sleep_us(self._min_pulse_width)
         self.step_pin.value(0)
         
         # Update position
         self._current_position += self._direction
-    
-    def _calculate_speed_for_step(self, step, total_steps):
-        """
-        Calculate the speed for a particular step based on acceleration profile.
-        
-        Args:
-            step (int): Current step number
-            total_steps (int): Total steps in move
-            
-        Returns:
-            float: Speed in steps per second
-        """
-        if not self._use_acceleration:
-            return self._max_speed
-            
-        # Determine acceleration/deceleration phases
-        accel_steps = int(self._max_speed * self._max_speed / (2.0 * self._acceleration))
-        decel_steps = int(self._max_speed * self._max_speed / (2.0 * self._deceleration))
-        
-        # Adjust if we don't have enough steps for full acc/decel
-        if accel_steps + decel_steps > total_steps:
-            accel_steps = total_steps * self._acceleration / (self._acceleration + self._deceleration)
-            decel_steps = total_steps - accel_steps
-        
-        constant_steps = total_steps - accel_steps - decel_steps
-        
-        # Calculate speed for current step
-        if step < accel_steps:
-            # Acceleration phase: v = sqrt(2*a*d)
-            return min(self._max_speed, 
-                      (2.0 * self._acceleration * step) ** 0.5)
-        elif step < accel_steps + constant_steps:
-            # Constant speed phase
-            return self._max_speed
-        else:
-            # Deceleration phase: v = sqrt(2*a*(total_decel_steps - steps_into_decel))
-            steps_into_decel = step - accel_steps - constant_steps
-            steps_remaining = decel_steps - steps_into_decel
-            if steps_remaining <= 0:
-                return 0
-            return max(10, (2.0 * self._deceleration * steps_remaining) ** 0.5)
     
     def move_steps(self, steps):
         """
@@ -235,28 +167,62 @@ class DM332TStepper:
             return
             
         # Set direction
+        direction = 1
         if steps < 0:
-            self.set_direction(-1)
-            steps = -steps
-        else:
-            self.set_direction(1)
-        
-        # Set target position
-        self._target_position = self._current_position + (steps * self._direction)
-        
-        # Initialize acceleration variables
-        self._current_speed = 0 if self._use_acceleration else self._max_speed
-        
-        # Execute movement with acceleration profile
-        for current_step in range(steps):
-            # Calculate speed for this step
-            if self._use_acceleration:
-                self._current_speed = self._calculate_speed_for_step(current_step, steps)
-                self._calculate_step_interval()
+            direction = -1
+            steps = abs(steps)  # Make positive for calculation
             
-            # Execute step
+        self.set_direction(direction)
+        
+        # Calculate constant speed interval
+        self._calculate_step_interval()
+        
+        # If acceleration is disabled, use constant speed
+        if not self._use_acceleration:
+            for _ in range(steps):
+                self._step()
+                time.sleep_us(int(self._step_interval))
+            return
+        
+        # Acceleration-based movement
+        
+        # Calculate acceleration parameters
+        accel_steps = int((self._speed * self._speed) / (2.0 * self._acceleration))
+        decel_steps = accel_steps  # Same formula for deceleration
+        
+        # If movement is too short for full accel + decel
+        if accel_steps + decel_steps > steps:
+            accel_steps = steps // 2
+            decel_steps = steps - accel_steps
+        
+        # Calculate constant speed phase
+        const_steps = steps - accel_steps - decel_steps
+        
+        # Execute acceleration phase
+        for i in range(accel_steps):
+            # v = sqrt(2*a*d) - calculate speed at this step
+            current_speed = (2.0 * self._acceleration * (i + 1)) ** 0.5
+            interval = 1000000 / current_speed  # microseconds
+            
+            self._step()
+            time.sleep_us(int(interval))
+        
+        # Execute constant speed phase
+        for _ in range(const_steps):
             self._step()
             time.sleep_us(int(self._step_interval))
+        
+        # Execute deceleration phase
+        for i in range(decel_steps):
+            # v = sqrt(2*a*d) - calculate speed for remaining steps
+            steps_remaining = decel_steps - i
+            current_speed = (2.0 * self._acceleration * steps_remaining) ** 0.5
+            if current_speed < 50:  # Minimum speed to prevent stalling
+                current_speed = 50
+            interval = 1000000 / current_speed  # microseconds
+            
+            self._step()
+            time.sleep_us(int(interval))
     
     def move_to_position(self, position):
         """
@@ -268,26 +234,6 @@ class DM332TStepper:
         steps = position - self._current_position
         self.move_steps(steps)
     
-    def move_angle(self, angle):
-        """
-        Move the motor by a specified angle in degrees.
-        
-        Args:
-            angle (float): Angle to move in degrees
-        """
-        steps = int((angle / 360) * self.steps_per_rev)
-        self.move_steps(steps)
-    
-    def move_revolutions(self, revolutions):
-        """
-        Move the motor a specified number of complete revolutions.
-        
-        Args:
-            revolutions (float): Number of revolutions to move
-        """
-        steps = int(revolutions * self.steps_per_rev)
-        self.move_steps(steps)
-        
     def move_mm(self, mm):
         """
         Move a specific distance in millimeters.
@@ -308,15 +254,6 @@ class DM332TStepper:
         step_position = int(mm_position * self.steps_per_mm)
         self.move_to_position(step_position)
     
-    def get_position(self):
-        """
-        Get the current position in steps.
-        
-        Returns:
-            int: Current position
-        """
-        return self._current_position
-    
     def set_position(self, position):
         """
         Set the current position without moving the motor.
@@ -325,41 +262,70 @@ class DM332TStepper:
             position (int): Position value to set
         """
         self._current_position = position
+        self._target_position = position
     
-    def is_at_target(self):
+    # Alias for compatibility with drawer control code
+    def overwrite_pos(self, position):
         """
-        Check if the motor is at the target position.
+        Alias for set_position() for compatibility with drawer control code.
         
-        Returns:
-            bool: True if at target position
+        Args:
+            position (int): Position value to set
         """
-        return self._current_position == self._target_position
-
+        self.set_position(position)
+    
+    def target(self, position):
+        """
+        Set the target position for the motor.
+        
+        Args:
+            position (int): Target position in steps
+        """
+        self._target_position = position
+        
+    def track_target(self):
+        """
+        Start moving the motor to the target position.
+        This is a blocking function that will wait until the target is reached.
+        """
+        steps = self._target_position - self._current_position
+        self.move_steps(steps)
+    
     def stop(self):
         """Stop the motor movement."""
         if self._timer:
             self._timer.deinit()
-            self._is_running = False
+            self._timer = None
+        self._is_running = False
     
-    def start_continuous(self, direction=1):
+    def free_run(self, direction):
         """
-        Start continuous movement in the specified direction.
+        Run the motor continuously in the specified direction.
         
         Args:
             direction (int): 1 for forward, -1 for backward
         """
         self.set_direction(direction)
+        
+        # Create a timer to generate steps
         if self._timer is None:
-            self._timer = Timer(-1)
+            self._timer = Timer(self._timer_id)
+        else:
+            try:
+                self._timer.deinit()
+            except:
+                pass
         
         # Calculate the timer period in milliseconds
-        period_ms = int(self._step_interval / 1000)
-        if period_ms < 1:
-            period_ms = 1  # Minimum 1ms
-            
-        self._timer.init(period=period_ms, mode=Timer.PERIODIC, callback=lambda t: self._step())
+        # For ESP32, a reasonable minimum is 1ms
+        period_ms = max(1, int(self._step_interval / 1000))
+        
+        # Start the timer
+        self._timer.init(period=period_ms, mode=Timer.PERIODIC, 
+                       callback=lambda t: self._step())
+        
         self._is_running = True
-    
+        
     def is_running(self):
         """
         Check if the motor is currently running.
@@ -368,15 +334,16 @@ class DM332TStepper:
             bool: True if running
         """
         return self._is_running
-    
-    def home(self, home_switch_pin, homing_speed=500, backoff_steps=100):
+        
+    def home(self, home_switch_pin, homing_speed=500, backoff_steps=100, acceleration=None):
         """
-        Home the motor using a home switch.
+        Home the motor using a home switch with proper acceleration.
         
         Args:
             home_switch_pin (Pin): Pin object for the home switch
-            homing_speed (int, optional): Speed for homing in steps/second
-            backoff_steps (int, optional): Steps to back off after hitting switch
+            homing_speed (int, optional): Speed for homing in steps/second (default: 500)
+            backoff_steps (int, optional): Steps to back off after hitting switch (default: 100)
+            acceleration (int, optional): Acceleration for homing in steps/second² (default: None, uses current setting)
             
         Note:
             Assumes switch is normally open and connects to GND when triggered
@@ -386,28 +353,97 @@ class DM332TStepper:
         if not isinstance(home_switch_pin, Pin):
             home_switch_pin = Pin(home_switch_pin, Pin.IN, Pin.PULL_UP)
         
+        # Store original settings
         original_speed = self._speed
-        self.set_speed(homing_speed)
+        original_accel = self._acceleration
+        original_use_accel = self._use_acceleration
         
-        # Move until switch is triggered
-        self.set_direction(-1)  # Assume homing direction is "backward"
+        # Enable motor
+        self.enable(True)
         
+        # Set homing direction (backward)
+        self.set_direction(-1)
+        
+        # Set homing speed
+        self.speed(homing_speed)
+        
+        # Set acceleration if provided
+        if acceleration is not None:
+            self.set_acceleration(acceleration)
+            self._use_acceleration = True
+        
+        # Calculate acceleration parameters
+        current_speed = 50  # Start at low speed
+        max_speed = homing_speed
+        accel = self._acceleration
+        
+        # Keep track of steps for acceleration calculation
+        accel_steps = 0
+        
+        # Home until switch is triggered
         while home_switch_pin.value() == 1:  # While switch not triggered
-            self._step()
-            time.sleep_us(int(self._step_interval))
+            # Calculate speed based on acceleration if enabled
+            if self._use_acceleration and accel_steps < 1000000:  # Prevent infinite acceleration
+                # v = sqrt(2*a*d) - calculate speed at this step
+                current_speed = min(max_speed, (2.0 * accel * accel_steps) ** 0.5)
+                if current_speed < 50:  # Minimum speed
+                    current_speed = 50
+                
+                # Calculate step interval based on current speed
+                interval = 1000000 / current_speed  # microseconds
+                
+                # Increment step counter for acceleration calculation
+                accel_steps += 1
+            else:
+                # Use constant speed if acceleration is disabled
+                interval = self._step_interval
+            
+            # Generate step pulse
+            self.step_pin.value(1)
+            time.sleep_us(self._min_pulse_width)
+            self.step_pin.value(0)
+            
+            # Update position
+            self._current_position += self._direction
+            
+            # Wait for next step
+            time.sleep_us(int(interval))
         
         # Stop and set position to 0
         self.stop()
-        self.set_position(0)
+        self.set_position(0)  # Zero position when home switch hit
         
-        # Back off slightly
+        # Back off slightly if needed
         if backoff_steps > 0:
+            # Use constant speed for backoff
+            backoff_speed = min(200, homing_speed)  # Limit to reasonable speed
+            
+            # Calculate interval for backoff
+            backoff_interval = 1000000 / backoff_speed
+            
+            # Set direction for backoff (forward, away from switch)
             self.set_direction(1)
-            self.move_steps(backoff_steps)
-            self.set_position(0)  # Reset position to 0 after backoff
+            
+            # Execute backoff steps
+            for _ in range(backoff_steps):
+                # Generate step pulse
+                self.step_pin.value(1)
+                time.sleep_us(self._min_pulse_width)
+                self.step_pin.value(0)
+                
+                # Update position
+                self._current_position += self._direction
+                
+                # Wait for next step
+                time.sleep_us(int(backoff_interval))
+            
+            # Reset position to 0 after backoff
+            self.set_position(0)
         
-        # Restore original speed
-        self.set_speed(original_speed)
+        # Restore original settings
+        self.speed(original_speed)
+        self._acceleration = original_accel
+        self._use_acceleration = original_use_accel
         
         return True
 
@@ -415,18 +451,16 @@ class DM332TStepper:
         """
         Print information about DM332T microstepping configuration.
         """
-        print("DM332T Microstepping Configuration Guide:")
-        print("----------------------------------------")
-        print("Set microstepping using SW1-SW4 DIP switches:")
+        print("DM332T Microstepping Guide:")
+        print("---------------------------")
+        print("SW1-SW4 DIP switches configuration:")
         print("1. All OFF: 400 steps/rev (full step)")
-        print("2. SW1 ON, others OFF: 800 steps/rev (half step)")
-        print("3. SW2 ON, others OFF: 1600 steps/rev (1/4 step)")
-        print("4. SW1+SW2 ON, others OFF: 3200 steps/rev (1/8 step)")
-        print("5. SW3 ON, others OFF: 6400 steps/rev (1/16 step)")
-        print("6. SW1+SW3 ON, others OFF: 12800 steps/rev (1/32 step)")
-        print("7. SW2+SW3 ON, others OFF: 25600 steps/rev (1/64 step)")
-        print("8. SW1+SW2+SW3 ON, others OFF: 51200 steps/rev (1/128 step)")
-        print("9. SW4 ON, others OFF: 1000 steps/rev (1/2.5 step)")
-        print("10. SW1+SW4 ON, others OFF: 2000 steps/rev (1/5 step)")
-        print("----------------------------------------")
+        print("2. SW1=ON: 800 steps/rev (1/2)")
+        print("3. SW2=ON: 1600 steps/rev (1/4)")
+        print("4. SW1+SW2=ON: 3200 steps/rev (1/8)")
+        print("5. SW3=ON: 6400 steps/rev (1/16)")
+        print("6. SW1+SW3=ON: 12800 steps/rev (1/32)")
+        print("7. SW2+SW3=ON: 25600 steps/rev (1/64)")
+        print("8. SW1+SW2+SW3=ON: 51200 steps/rev (1/128)")
+        print("---------------------------")
         print(f"Current setting: {self.steps_per_rev} steps/rev")

@@ -20,3 +20,6 @@ while True:
             print(f"Moving target: {radar.moving_target_distance()}cm, energy: {radar.moving_target_energy()}")
 
     time.sleep(0.1)
+
+
+
