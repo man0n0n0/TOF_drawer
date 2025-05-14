@@ -3,7 +3,7 @@ import _thread
 import json
 from ssd1306 import SSD1306_I2C
 from time import sleep_ms
-from stepper import Stepper
+from DM332T import DM332TStepper
 from ld2410 import LD2410
 
 # Constants
@@ -98,11 +98,16 @@ def radar_thread(uart, threshold):
 # Initialize hardware
 i2c = I2C(0, sda=Pin(5), scl=Pin(6))
 display = SSD1306_I2C(70, 40, i2c)
-#s = Stepper(step_pin=1, dir_pin=2, en_pin=7, invert_dir=True)
+
+# Initialize stepper motor with DM332T driver
 dir_pin = Pin(0, Pin.OUT)
 step_pin = Pin(2, Pin.OUT)
 en_pin = Pin(7, Pin.OUT)
-s = Stepper(step_pin,dir_pin,en_pin,invert_dir=True,timer_id=0) #stp,dir,en
+s = DM332TStepper(step_pin=step_pin, 
+                  dir_pin=dir_pin, 
+                  en_pin=en_pin, 
+                  invert_dir=True, 
+                  timer_id=0)
 
 end_s = Pin(8, Pin.IN, Pin.PULL_UP)
 
@@ -125,6 +130,9 @@ steps_per_rev = config["steps_per_rev"]
 step_per_mm = config["step_per_mm"]
 d_out = config["d_out"]
 homing_speed = config["homing_speed"]
+
+# Set steps per mm in the stepper driver
+s.steps_per_mm = step_per_mm
 
 # Start radar thread
 _thread.start_new_thread(radar_thread, (uart, d_threshold))
@@ -155,8 +163,6 @@ while True:
             s.enable(False)  # Disable stepper
             display_msg(display, f"waiting\ninside\nfor{wait_inside/1000}sec")
             sleep_ms(wait_inside)
-
-
             
         elif not motion_detected and drawer_closed:
             # OPEN DRAWER

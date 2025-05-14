@@ -90,13 +90,6 @@ s = DM332TStepper(
     steps_per_rev=3200
 )
 
-# Create stepper instance
-s = DM332TStepper(
-    step_pin=STEP_PIN,
-    dir_pin=DIR_PIN,
-    enable_pin=ENABLE_PIN,
-    steps_per_rev=STEPS_PER_REV
-)
 end_s = Pin(8, Pin.IN, Pin.PULL_UP)
 
 # Initialize UART for radar
@@ -107,12 +100,11 @@ end_s = Pin(8, Pin.IN, Pin.PULL_UP)
 
 # Home the drawer mechanism
 #homing(s, end_s, display, homing_speed)
-s.enable(True)
+s.enable()
 
 sleep_ms(10)
 
-s.speed(5000)
-s.free_run(-1)  # Move toward home switch
+s.set_speed(5000)
 
 # while True :
 #     step_pin.value(0)
