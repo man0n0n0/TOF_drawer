@@ -21,7 +21,7 @@ DEFAULT_CONFIG = {
 
 # Global variables for thread communication
 r_d = 0
-human = False
+human = True
 thread_running = True
 
 
@@ -49,23 +49,35 @@ def display_msg(display, msg):
 def r_thread(uart, threshold):
     """Thread function to continuously read radar data"""
     global r_d, human, thread_running
-    
     # Initialize r
     r = LD2410()
-    r.begin(uart)
+    
+    # Create a list to store the last 3 distance readings
+    distance_history = [0, 0, 0]  # Initialize with zeros
+    history_index = 0  # Index to track position in the circular buffer
     
     while thread_running:
         # Read radar data
+        r.begin(uart)
         r.read()
-
+        
         # Check if targets are detected
         if r.stationary_target_detected():
-            r_d = r.stationary_target_distance() * 10
+            # Store the current reading in the history
+            current_distance = r.stationary_target_distance() * 10
+            distance_history[history_index] = current_distance
+            
+            # Update index for circular buffer
+            history_index = (history_index + 1) % 3
+            
+            # Calculate the average of the last 3 readings
+            r_d = sum(distance_history) / 3
+            
             if r_d < threshold:
                 human = True
-            else:
+            elif threshold + 200 < r_d:
                 human = False
-
+        
         sleep_ms(100)  # Small delay to prevent CPU hogging
 
 # Initialize hardware
@@ -133,8 +145,8 @@ s.steps_per_mm = step_per_mm
 _thread.start_new_thread(r_thread, (uart, d_threshold))
 
 # Configure acceleration
-s.set_acceleration(1000)  # 1000 steps/second²
-s.set_deceleration(1000)  # 1000 steps/second²
+s.set_acceleration(66666)  # 1000 steps/second²
+s.set_deceleration(66666)  # 1000 steps/second²
 s.enable_acceleration()   # Make sure acceleration is enabled
 s.enable()
 
@@ -142,41 +154,47 @@ s.enable()
 #homing(s, end_s, display, homing_speed)
 display_msg(display, "Homing...")
 s.home(end_s, homing_speed=homing_speed, acceleration=1000)
-display_msg(display, " HOMED!\n")
+display_msg(display, " HOMED!\nlooking\nor peace")
+
 drawer_closed = True
+drawer_fully_opened = False
 
 # Main loop
 while True:  
-
-    print(r_d, human)
-
-
+    #print(r_d, human)
     if human and not drawer_closed:
-        # CLOSE DRAWER
+        # # CLOSE DRAWER
         print("close drawer")
-        display_msg(display, f"Distance: {r_d}\nClosing drawer...")
         s.enable()
-        
-        s.move_mm(3)
-        sleep_ms(400)
+        s.set_speed(back_speed)
+
+        s.move_to_position_mm(3)
+
         s.home(end_s, homing_speed=homing_speed)
 
         drawer_closed = True
+        drawer_fully_opened = False
         s.disable()  # Disable stepper
+
         display_msg(display, f"waiting\ninside\nfor{wait_inside/1000}sec")
         sleep_ms(wait_inside)
+        display_msg(display, f"waiting\nto be\nalone")
         
-    elif not human and drawer_closed:
+    elif not human and not drawer_fully_opened:
         # OPEN DRAWER
         print("open_drawer")
-        display_msg(display, "Opening \n drawer...")
+        drawer_closed = False
 
         s.enable()
-        s.move_mm(d_out)
+        s.set_speed(forw_speed)
 
-        drawer_closed = False
-        sleep_ms(500)  # Wait for movement to start
-        display_msg(display, "OPENED! \n WATCHING...")
-        s.disable()  # Disable stepper
+        s.target_mm(d_out)
+        s.start_continuous(use_acceleration=False)
+
+        if s.is_at_target():
+            s.stop()
+            display_msg(display, "OPENED! \n WATCHING...")
+            s.disable()  # Disable stepper
+            drawer_fully_opened=True
         
     sleep_ms(100)

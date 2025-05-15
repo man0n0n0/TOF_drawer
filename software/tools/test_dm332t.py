@@ -32,6 +32,7 @@ STEPS_PER_MM = 25.6
 stepper = DM332TStepper(
     step_pin=STEP_PIN,
     dir_pin=DIR_PIN,
+    invert_dir=True,
     enable_pin=ENABLE_PIN,
     steps_per_rev=STEPS_PER_REV,
     steps_per_mm=STEPS_PER_MM
@@ -171,22 +172,54 @@ def test_metric_movement():
     
     print("Millimeter movement test complete!")
 
+# Metric movement test
+def test_drawer():
+    stepper.enable()
+
+    stepper.move_mm(50)
+    
+    time.sleep(1)
+    
+    # Move 5mm backward
+    print("Moving 5mm backward...")
+    stepper.move_mm(-50)
+    
+    time.sleep(1)
+    
+    # Move to absolute position 15mm
+    print("Moving to absolute position 50mm...")
+    stepper.move_to_mm(50)
+    
+    time.sleep(1)
+    
+    # Return to 0
+    print("Returning to position 0...")
+    stepper.move_to_mm(0)
+    
+    print("Millimeter movement test complete!")
 # Main program
 try:
+
     # Run tests  
+    #test_drawer()
     # test_speed()
     # time.sleep(1)
+    # test_metric_movement()
+    # time.sleep(1)
 
-    test_metric_movement()
-    time.sleep(1)
-
-    stepper.stop()
-    stepper.disable()
+    # stepper.stop()
+    # stepper.disable()
     # Uncomment to test homing (requires home switch)
     # test_homing()
     
     # Disable motor to save power
-    stepper.disable()
+    while True :
+        stepper.target_mm(10)
+        stepper.start_continuous()
+        print(stepper.get_position_mm())
+        if stepper.is_at_target():
+            stepper.stop()
+        time.sleep(0.1)
     
 except KeyboardInterrupt:
     # Handle Ctrl+C

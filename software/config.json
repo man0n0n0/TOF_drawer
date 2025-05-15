@@ -1,4 +1,4 @@
-{"d_threshold": 500, 
+{"d_threshold": 2000, 
 "back_speed": 11000, 
 "forw_speed": 1100,
 "wait_inside": 1000,
