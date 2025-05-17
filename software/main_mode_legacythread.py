@@ -19,6 +19,12 @@ DEFAULT_CONFIG = {
     "homing_speed": 500
 }
 
+# Global variables for thread communication
+r_d = 0
+human = True
+thread_running = True
+thread_paused = False  # New variable to control thread pausing
+
 def load_config():
     """Load configuration from JSON file or use defaults"""
     try:
@@ -40,6 +46,62 @@ def display_msg(display, msg):
         y += 10
     display.show()
 
+def r_thread(uart, threshold):
+    """Thread function to continuously read radar data"""
+    global r_d, human, thread_running, thread_paused
+    # Initialize r
+    r = LD2410()
+    
+    # Create a list to store the last 3 distance readings
+    distance_history = [0, 0, 0]  # Initialize with zeros
+    history_index = 0  # Index to track position in the circular buffer
+    
+    while thread_running:
+        # Read radar data
+        r.begin(uart)
+        r.read()
+
+        # Check if targets are detected
+        if r.stationary_target_detected():
+
+            ##### avenraging value 
+            # Store the current reading in the history
+            #current_distance = r.stationary_target_distance() * 10
+            #distance_history[history_index] = current_distance
+            
+            # Update index for circular buffer
+            #history_index = (history_index + 1) % 3
+            
+            # Calculate the average of the last 3 readings
+            #r_d = sum(distance_history) / 3
+
+            ####
+            r_d = r.stationary_target_distance() * 10
+            
+            if r_d < threshold:
+                human = True
+            elif threshold + 200 < r_d:
+                human = False
+        
+        sleep_ms(100)  # Small delay to prevent CPU hogging
+
+def start_radar_thread(uart, threshold):
+    """Start the radar thread"""
+    global thread_id, thread_running
+    
+    # Make sure any existing thread is stopped
+    if thread_running:
+        stop_radar_thread()
+        sleep_ms(200)  # Give time for the thread to stop
+    
+    # Start a new thread
+    thread_id = _thread.start_new_thread(r_thread, (uart, threshold))
+    print("Started radar thread")
+    
+    # Wait for thread to properly initialize
+    sleep_ms(100)
+    
+    return thread_id
 # Initialize hardware
 i2c = I2C(0, sda=Pin(5), scl=Pin(6))
 display = SSD1306_I2C(70, 40, i2c)
@@ -82,12 +144,6 @@ uart = UART(1, baudrate=256000)
 uart.init(tx=Pin(10), rx=Pin(3))
 #r object
 r = LD2410()
-#state variable
-r_d = 0
-human = True
-# Create a list to store the last readings
-distance_history = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]  # Initialize with zeros
-history_index = 0  # Index to track position in the circular buffer
 
 # Load configuration
 config = load_config()
@@ -112,15 +168,15 @@ s.steps_per_mm = step_per_mm
 #thread_id = _thread.start_new_thread(r_thread, (uart, d_threshold))
 
 # Configure acceleration
-s.set_acceleration(33333)  # 1000 steps/second²
-s.set_deceleration(11111)  # 1000 steps/second²
+s.set_acceleration(66666)  # 1000 steps/second²
+s.set_deceleration(66666)  # 1000 steps/second²
 s.enable_acceleration()   # Make sure acceleration is enabled
 s.enable()
 
 # Home the drawer mechanism
 #homing(s, end_s, display, homing_speed)
 display_msg(display, "Homing...")
-s.home(end_s)
+s.home(end_s, homing_speed=homing_speed)
 display_msg(display, " HOMED!\nlooking\nor peace")
 
 drawer_closed = True
@@ -129,21 +185,35 @@ drawer_fully_opened = False
 # Main loop
 while True:  
     r.begin(uart)
+    sleep_ms(10)
     r.read()
 
-    current_distance = r.stationary_target_distance() * 10
-    distance_history[history_index] = current_distance
-    
-    #Update index for circular buffer
-    history_index = (history_index + 1) % 10
-    
-    #Calculate the average of the last 10 readings
-    r_d = sum(distance_history) / 10
+    # Check if targets are detected
+    if r.stationary_target_detected():
 
-    human = True if r_d < d_threshold else False
+        ##### avenraging value 
+        # Store the current reading in the history
+        #current_distance = r.stationary_target_distance() * 10
+        #distance_history[history_index] = current_distance
+        
+        # Update index for circular buffer
+        #history_index = (history_index + 1) % 3
+        
+        # Calculate the average of the last 3 readings
+        #r_d = sum(distance_history) / 3
 
+        ####
+        r_d = r.stationary_target_distance() * 10
+        
+        if r_d < d_threshold:
+            human = True
+        else:
+            human = False
 
-    #print(f"{r_d} :: {d_threshold} mm ")
+    else:
+        pass
+
+    print(f"{r_d} :: {d_threshold} mm ")
 
     if human and not drawer_closed:
         # CLOSE DRAWER
@@ -152,34 +222,44 @@ while True:
         # thread_running = False
         
         s.enable()
-        s.set_speed(back_speed)
+        #s.set_speed(back_speed)
+        # s.move_to_position_mm(20)
 
-        s.move_to_position_mm(20)
-
-        if end_s.value() == 1 :
-            print("homign")
-            s.home(end_s)
+        s.home(end_s, homing_speed=back_speed, homing_accel=66666)
 
         drawer_closed = True
         drawer_fully_opened = False
         s.disable()  # Disable stepper
-        
+        sleep_ms(10)
+
+        # # Restart a radar thread after drawer is closed
+        # _thread.start_new_thread(r_thread, (uart, d_threshold))
+        # sleep_ms(10)
+
         display_msg(display, f"waiting\ninside\nfor{wait_inside/1000}sec")
         sleep_ms(wait_inside)
         display_msg(display, f"waiting\nto be\nalone")
-
+        
     elif not human and drawer_closed:
         # OPEN DRAWER
         print("open_drawer")
         display_msg(display, f"opening...")
         drawer_closed = False
-        s.set_speed(forw_speed)
-        s.enable()
-        s.move_to_position_mm(d_out)
-        display_msg(display, "OPENED! \n WATCHING...")
-        s.disable()  # Disable stepper
-        # Create a list to store the last readings
-        distance_history = [d_threshold,d_threshold,d_threshold,d_threshold,d_threshold,d_threshold,d_threshold,d_threshold,d_threshold,d_threshold]  # Initialize with zeros
-        history_index = 0  # Index to track position in the circular buffer
 
+        s.enable()
+        s.set_speed(forw_speed)
+
+        s.target_mm(d_out)
+        s.start_continuous(1,use_acceleration=False)
+
+        sleep_ms(500)
+
+    elif not human and not drawer_fully_opened:
+        # AXIS DRAWER LIMIT
+        if s.is_at_target():
+            s.stop()
+            display_msg(display, "OPENED! \n WATCHING...")
+            s.disable()  # Disable stepper
+            drawer_fully_opened=True
+        
     sleep_ms(100)
