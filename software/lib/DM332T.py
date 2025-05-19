@@ -581,7 +581,7 @@ class DM332TStepper:
         if use_acceleration and self._use_acceleration:
             # Create timer if needed
             if self._timer is None:
-                self._timer = Timer(-1)
+                self._timer = Timer(0)
             
             # Start with zero speed or minimum speed
             self._current_speed = 10  # Minimum starting speed
@@ -637,7 +637,7 @@ class DM332TStepper:
             
             # Create timer if needed
             if self._timer is None:
-                self._timer = Timer(-1)
+                self._timer = Timer(0)
             
             # Calculate the timer period in milliseconds
             period_ms = max(1, int(self._step_interval / 1000))  # Minimum 1ms
