@@ -1,9 +1,9 @@
-{"d_threshold": 1300, 
+{"d_threshold": 1000, 
 "back_speed": 11000, 
 "forw_speed": 1100,
 "wait_inside": 10000,
 "steps_per_rev": 3200,
 "step_per_mm": 25.6,
-"d_out": 200, 
+"d_out": 180, 
 "homing_speed": 500
 }

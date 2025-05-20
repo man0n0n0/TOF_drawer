@@ -67,32 +67,28 @@ def r_thread(threshold):
     r2.begin(uart2)
 
     # Create a list to store the last readings
-    distance_history = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]  # Initialize with zeros
-    history_index = 0  # Index to track position in the circular buffer
+    # distance_history = [0, 0, 0]  # Initialize with zeros
+    # history_index = 0  # Index to track position in the circular buffer
 
     while thread_running:
         # Read radar data
         r1.read()
         r2.read()
 
-        #### avenraging value 
-        # Store the current reading in the history
-        current_distance = min(r1.moving_target_distance(),r2.moving_target_distance()) * 10
-        distance_history[history_index] = current_distance
+        # #### avenraging value 
+        # # Store the current reading in the history
+        # current_distance = max(r1.moving_target_distance(),r2.moving_target_distance()) * 10
+        # distance_history[history_index] = current_distance
         
-        #Update index for circular buffer
-        history_index = (history_index + 1) % 10
+        # #Update index for circular buffer
+        # history_index = (history_index + 1) % 3
         
-        #Calculate the average of the last 3 readings
-        r_d = sum(distance_history) / 10
-        
-        if r_d < threshold:
-            human = True
-        elif threshold + 200 < r_d:
-            human = False
+        # #Calculate the average of the last 3 readings
+        # r_d = sum(distance_history) / 3
 
-        print(r_d)
-        sleep_ms(50)  # Small delay to prevent CPU hogging
+        r_d = min(r1.moving_target_distance(),r2.moving_target_distance()) * 10 
+        human = True if r_d < threshold else False
+        sleep_ms(20)  # Small delay to prevent CPU hogging
 
 # Initialize hardware
 i2c = I2C(0, sda=Pin(22), scl=Pin(23))
@@ -100,21 +96,14 @@ display = SSD1306_I2C(128, 64, i2c)
 
 # Initialize stepper motor with DM332T driver
 # Configuration
-STEP_PIN = 25    # GPIO pin connected to STEP input on DM332T
-DIR_PIN = 26     # GPIO pin connected to DIR input on DM332T  
-ENABLE_PIN = 27   # GPIO pin connected to ENA input on DM332T (optional)
-HOME_SWITCH_PIN = 36  # GPIO pin connected to home switch
+STEP_PIN = 33    # GPIO pin connected to STEP input on DM332T
+DIR_PIN = 25    # GPIO pin connected to DIR input on DM332T  
+ENABLE_PIN = 26  # GPIO pin connected to ENA input on DM332T (optional)
+HOME_SWITCH_PIN = 15  # GPIO pin connected to home switch
 
-# Set steps per revolution based on DM332T microstepping setting
-# Common values: 
-# - 200 (full step, no microstepping)
-# - 400 (half step)
-# - 1600 (1/8 step)
-# - 3200 (1/16 step)
 STEPS_PER_REV = 3200
 
 # For linear movements - steps per millimeter
-# This value needs to be calibrated for your specific setup
 # For a belt drive with 20 teeth pulley, 2mm pitch, and 1/16 microstepping:
 # (200 steps/rev × 16 microsteps) ÷ (20 teeth × 2mm) = 80 steps/mm
 STEPS_PER_MM = 25.6
@@ -130,7 +119,6 @@ s = DM332TStepper(
 
 # End switch declaration
 end_s = Pin(HOME_SWITCH_PIN, Pin.IN, Pin.PULL_UP)
-
 
 # Load configuration
 config = load_config()
@@ -155,41 +143,30 @@ s.steps_per_mm = step_per_mm
 thread_id = _thread.start_new_thread(r_thread, [d_threshold])
 
 # Configure acceleration
-s.set_acceleration(33333)  # 1000 steps/second²
-s.set_deceleration(11111)  # 1000 steps/second²
+s.set_acceleration(333333)  # 1000 steps/second²
+s.set_deceleration(99999)  # 1000 steps/second²
 s.enable_acceleration()   # Make sure acceleration is enabled
 s.enable()
 
 # Home the drawer mechanism
-#homing(s, end_s, display, homing_speed)
 display_msg(display, "Homing...")
 s.home(end_s)
 display_msg(display, " HOMED!\nlooking\nor peace")
-
 drawer_closed = True
-drawer_fully_opened = False
 
 # Main loop
-while True:  
-    print(f"{r_d} :: {d_threshold} mm ")
-
+while True: 
     if human and not drawer_closed:
         # CLOSE DRAWER
-        print("close drawer")
-        
-        # thread_running = False
-        
         s.enable()
-        s.set_speed(back_speed)
-
         s.move_to_position_mm(20)
 
         if end_s.value() == 1 :
-            print("homign")
+            display_msg(display, "Homing...")
             s.home(end_s)
+            display_msg(display, " HOMED!\nlooking\nor peace")
 
         drawer_closed = True
-        drawer_fully_opened = False
         s.disable()  # Disable stepper
         
         display_msg(display, f"waiting\ninside\nfor{wait_inside/1000}sec")
@@ -198,13 +175,20 @@ while True:
 
     elif not human and drawer_closed:
         # OPEN DRAWER
-        print("open_drawer")
         display_msg(display, f"opening...")
         drawer_closed = False
         s.set_speed(forw_speed)
         s.enable()
         s.move_to_position_mm(d_out)
         display_msg(display, "OPENED! \n WATCHING...")
+        s.set_speed(back_speed) # preprare speed for next operation
         s.disable()  # Disable stepper
 
-    sleep_ms(1000)
+    # else :
+    #     if not r_d == 0 :
+    #         display_msg(display, f"radar distance : \n {r_d}mm")
+    #     else : 
+    #         # if a r value is 0 radar is missing OR something is blocking in front of it (unactive state :: 0 mm value)
+    #         display_msg(display, f"\n!!RADAR ERROR!! \ncheck ld2410")
+
+    sleep_ms(20)
