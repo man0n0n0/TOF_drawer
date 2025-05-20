@@ -95,7 +95,6 @@ i2c = I2C(0, sda=Pin(22), scl=Pin(23))
 display = SSD1306_I2C(128, 64, i2c)
 
 # Initialize stepper motor with DM332T driver
-# Configuration
 STEP_PIN = 33    # GPIO pin connected to STEP input on DM332T
 DIR_PIN = 25    # GPIO pin connected to DIR input on DM332T  
 ENABLE_PIN = 26  # GPIO pin connected to ENA input on DM332T (optional)
@@ -143,9 +142,9 @@ s.steps_per_mm = step_per_mm
 thread_id = _thread.start_new_thread(r_thread, [d_threshold])
 
 # Configure acceleration
-s.set_acceleration(333333)  # 1000 steps/second²
-s.set_deceleration(99999)  # 1000 steps/second²
-s.enable_acceleration()   # Make sure acceleration is enabled
+s.set_acceleration(333333)  # stp*sec⁻2
+s.set_deceleration(99999)  
+s.enable_acceleration()   
 s.enable()
 
 # Home the drawer mechanism
@@ -167,7 +166,7 @@ while True:
             display_msg(display, " HOMED!\nlooking\nor peace")
 
         drawer_closed = True
-        s.disable()  # Disable stepper
+        s.disable()  
         
         display_msg(display, f"waiting\ninside\nfor{wait_inside/1000}sec")
         sleep_ms(wait_inside)
@@ -179,10 +178,12 @@ while True:
         drawer_closed = False
         s.set_speed(forw_speed)
         s.enable()
+
         s.move_to_position_mm(d_out)
+        
         display_msg(display, "OPENED! \n WATCHING...")
         s.set_speed(back_speed) # preprare speed for next operation
-        s.disable()  # Disable stepper
+        s.disable() 
 
     # else :
     #     if not r_d == 0 :
