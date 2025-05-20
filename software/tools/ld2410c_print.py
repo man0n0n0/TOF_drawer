@@ -25,7 +25,5 @@ while True:
     print(f"Stationary target: {radar1.moving_target_distance()}cm, energy: {radar1.stationary_target_energy()}")
     print(f"Stationary target: {radar2.moving_target_distance()}cm, energy: {radar2.stationary_target_energy()}")
 
-    time.sleep(0.1)
-
 
 
