@@ -29,8 +29,8 @@
 #define ENDSWITCH_PIN 15
 
 // Drawer specific
-#define D_OUT 220
-
+#define D_OUT 200
+https://www.google.com/search?client=firefox-b-lm&channel=entpr&q=prise+choco
 // Access Point credentials
 const char* ap_ssid = "ESP32_Control";
 const char* ap_password = "12345678";
@@ -106,7 +106,7 @@ void setup() {
     configMode = false;
 
     // Configure the stepper
-    stepper.setPinsInverted(true);
+    stepper.setPinsInverted(false);
     stepper.setMaxSpeed(15000);
     stepper.setAcceleration(10000);
     pinMode(EN_PIN, OUTPUT);
@@ -198,7 +198,7 @@ void loop() {
       {      
         while (digitalRead(ENDSWITCH_PIN)) 
         {    
-          digitalWrite(DIR_PIN, HIGH);      // (HIGH = anti-clockwise / LOW = clockwise)
+          digitalWrite(DIR_PIN, LOW);      // (HIGH = anti-clockwise / LOW = clockwise)
           digitalWrite(STEP_PIN, HIGH);
           delay(5);                         // Delay to slow down speed of Stepper
           digitalWrite(STEP_PIN, LOW);
