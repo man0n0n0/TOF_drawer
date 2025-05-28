@@ -29,8 +29,7 @@
 #define ENDSWITCH_PIN 15
 
 // Drawer specific
-#define D_OUT 200
-https://www.google.com/search?client=firefox-b-lm&channel=entpr&q=prise+choco
+#define D_OUT 180
 // Access Point credentials
 const char* ap_ssid = "ESP32_Control";
 const char* ap_password = "12345678";
@@ -64,7 +63,8 @@ bool radar1Connected = false;
 uint32_t r2_lastreading = 0;
 volatile int radar2_d;
 bool radar2Connected = false;
-
+   
+uint32_t last_movement = 0;
 volatile int human_d;
 
 bool isHomed = false;
@@ -106,7 +106,7 @@ void setup() {
     configMode = false;
 
     // Configure the stepper
-    stepper.setPinsInverted(false);
+    stepper.setPinsInverted(true);
     stepper.setMaxSpeed(15000);
     stepper.setAcceleration(10000);
     pinMode(EN_PIN, OUTPUT);
@@ -161,11 +161,10 @@ void loop() {
     if(radar1.isConnected() && millis() - r1_lastreading > 20)  //Report every 20ms
     {
       r1_lastreading = millis();                                            
-      if(radar1.movingTargetDetected())
-      {
-        radar1_d = radar1.movingTargetDistance();
-        //MONITOR_SERIAL.println(radar1_d);
-      }
+
+      radar1_d = radar1.movingTargetDistance();
+      MONITOR_SERIAL.println(radar1_d);
+
     }
   
     // Radar2 mesurement logic
@@ -174,11 +173,10 @@ void loop() {
     if(radar2.isConnected() && millis() - r2_lastreading > 20)  //Report every 20ms
     {
       r2_lastreading = millis();
-      if(radar2.movingTargetDetected())
-      {
-        radar2_d = radar2.movingTargetDistance();
-        //MONITOR_SERIAL.println(radar2_d);
-      }
+
+      radar2_d = radar2.movingTargetDistance();
+      MONITOR_SERIAL.println(radar2_d);
+     
     }
   
     // Presence value math operation
@@ -198,7 +196,7 @@ void loop() {
       {      
         while (digitalRead(ENDSWITCH_PIN)) 
         {    
-          digitalWrite(DIR_PIN, LOW);      // (HIGH = anti-clockwise / LOW = clockwise)
+          digitalWrite(DIR_PIN, HIGH);      // (HIGH = anti-clockwise / LOW = clockwise)
           digitalWrite(STEP_PIN, HIGH);
           delay(5);                         // Delay to slow down speed of Stepper
           digitalWrite(STEP_PIN, LOW);
@@ -227,13 +225,40 @@ void loop() {
       // Return to starting position (0mm)
       stepper.setMaxSpeed(FORW_SPEED);
       stepper.moveTo(D_OUT * STEP_PER_MM);
-  
-      // Disabling management
-      if (stepper.currentPosition() == D_OUT)
-      {
-        digitalWrite(EN_PIN, HIGH); //disable stepper
-      }
+
+      //BLOCKING
+      stepper.runToPosition(); // (blocking)
+
+      //NON BLOCKING  
+//      // Disabling management
+//      if (stepper.currentPosition() == D_OUT)
+//      {
+//        digitalWrite(EN_PIN, HIGH); //disable stepper
+//      }
+
+
     }
+
+//    else if ( millis() - last_movement > 20000 )
+//    {
+//      //IF NO MOVEMENT FOR A LONG TIME
+//      last_movement = millis();
+//
+//      digitalWrite(EN_PIN, LOW); //enable stepper
+//      isHomed = false; // homing management
+//      IsOpen = true;
+//      
+//      // Return to starting position (0mm)
+//      stepper.setMaxSpeed(FORW_SPEED);
+//      stepper.moveTo(D_OUT * STEP_PER_MM);
+//  
+//      // Disabling management
+//      if (stepper.currentPosition() == D_OUT)
+//      {
+//        digitalWrite(EN_PIN, HIGH); //disable stepper
+//      }
+//    }
+ 
   stepper.run(); // (non-blocking)
   }
 }
