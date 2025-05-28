@@ -36,7 +36,7 @@ const char* ap_ssid = "ESP32_Control";
 const char* ap_password = "12345678";
 
 // Variables to be modified via web interface
-int D_THRESHOLD = 100;    // Default: 1000mm
+int D_THRESHOLD = 300;    // Default: 300cm
 int BACK_SPEED = 8000;     // Default: 8000 steps/sec
 int FORW_SPEED = 1000;     // Default: 1000 steps/sec
 int WAIT_INSIDE = 3000;    // Default: 3000ms
@@ -206,14 +206,11 @@ void loop() {
         } 
         
         stepper.setCurrentPosition(0);
-        stepper.disableOutputs();  
-
-        stepper.moveTo(10 * STEP_PER_MM);
+        stepper.moveTo(1 * STEP_PER_MM);
         stepper.runToPosition(); // (blocking)
-
+        
         delay(WAIT_INSIDE);
-        MONITOR_SERIAL.println("homed ! wainting inside");
-
+        //MONITOR_SERIAL.println("homed ! wainting inside");
         digitalWrite(EN_PIN, HIGH); //disable stepper
         isHomed = true;
         IsOpen = false;
