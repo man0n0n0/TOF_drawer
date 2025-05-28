@@ -231,6 +231,8 @@ void loop() {
       //BLOCKING
       stepper.runToPosition(); // (blocking)
 
+      delay(2000);
+
       //NON BLOCKING  
 //      // Disabling management
 //      if (stepper.currentPosition() == D_OUT)
