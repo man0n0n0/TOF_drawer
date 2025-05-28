@@ -6,15 +6,18 @@
 
 - [ ] CNC : front pulley holder (wood)
 
-- [ ] CNC : back cover (dibon)
+- [ ] CNC : back cover (dibon) (not mandatory)
 
-- [ ] 3D print : pulley holder
+- [ ] 3D print : belt tensioner
+  - nema 23 related
+
+- [x] 3D print : pulley holder
   - reduce z
 
-- [ ] 3D print : belt tensioner 
+- [x] 3D print : belt blockign system 
   - reduce z 
 
-- [ ] 3D print : endswitch bracket
+- [x] 3D print : endswitch bracket
   - adjustable y placement
 
 # software 
