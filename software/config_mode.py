@@ -17,8 +17,6 @@ def display_msg(display, msg):
         y += 10
     display.show()
 
-
-
 # Setup network
 ap = network.WLAN(network.AP_IF)
 ap.active(True)
@@ -26,8 +24,9 @@ ap.config(essid='drawer-config', password='admin123', authmode=3)
 ip = ap.ifconfig()[0]
 
 # Setup display
-i2c = I2C(0, sda=Pin(5), scl=Pin(6))
-display = SSD1306_I2C(70, 40, i2c)
+i2c = I2C(0, sda=Pin(22), scl=Pin(23))
+display = SSD1306_I2C(128, 64, i2c)
+time.sleep(0.1)
 display_msg(display, f"CONFIG-MODE\n {ip[:7]}\n  {ip[7:]}")
 
 # Create server
@@ -42,7 +41,6 @@ try:
         config = json.loads(f.read())
 except:
     config = {
-        "d_threshold": 1000,
         "back_speed": 6000,
         "forw_speed": 1000,
         "wait_inside": 1000,
