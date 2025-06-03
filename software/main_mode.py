@@ -104,17 +104,21 @@ r2 = Pin(14, Pin.IN) # use the "tx pin" placement
 human = True
 human_buffer = [1,1,1]
 
+def isHuman():
+    thresh = 0
+    for i in range(10):
+        thresh = thresh + r2.value() + r1.value() 
+        sleep_ms(10)
+    return thresh
+
 # Main loop
 while True:
-    #buffering detection
-    if r1.value() == 1 or r2.value() == 1 :
-        human_buffer.append(1)
 
-    else:
-        human_buffer.append(0)
-    
-    human_buffer.pop(0)  # Remove oldest reading
-    human = False if human_buffer == [0,0,0] else True
+    if isHuman() > 5 :
+        human = True
+    else :
+        human = False
+    #print(isHuman())
 
     #logic management
     if human and not drawer_closed:
@@ -136,10 +140,10 @@ while True:
         display_msg(display, f"waiting\nto be\nalone")
 
     elif not human and drawer_closed:
+
         # OPEN DRAWER
         drawer_closed = False
         s.enable(True)
-
         s.speed(forw_speed)
         s.target(d_out*step_per_mm)
         
@@ -148,5 +152,8 @@ while True:
 
         sleep_ms(500) #"ensure sensor cool-down"
         s.enable(False)
-
-    sleep_ms(100)
+    
+    elif human and drawer_closed:
+        while isHuman() > 1 :
+            sleep_ms(200)
+            #print("WAAIT")

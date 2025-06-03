@@ -1,6 +1,6 @@
 {"back_speed": 20000, 
-"forw_speed": 1000,
-"wait_inside": 1000,
+"forw_speed": 5000,
+"wait_inside": 15,
 "steps_per_rev": 3200,
 "step_per_mm": 25.6,
 "d_out": 180, 
